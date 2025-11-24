@@ -211,12 +211,16 @@
   z-index: 20 !important;
 }
 
-/* Make handles bigger on mobile for easier interaction */
+/* Increase hit area on mobile without changing visual size */
 @media (max-width: 768px) {
-  .react-flow__handle {
-    width: 20px !important;
-    height: 20px !important;
-    border: 3px solid var(--border) !important;
+  .react-flow__handle::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 44px !important;
+    height: 44px !important;
   }
 }
 
