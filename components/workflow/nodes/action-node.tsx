@@ -166,6 +166,49 @@ const ModelBadge = ({ model }: { model: string }) => {
   );
 };
 
+// Generated image thumbnail with zoom dialog
+function GeneratedImageThumbnail({ base64 }: { base64: string }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        className="relative size-12 cursor-zoom-in overflow-hidden rounded-lg transition-transform hover:scale-105"
+        onClick={(e) => {
+          e.stopPropagation();
+          setDialogOpen(true);
+        }}
+        type="button"
+      >
+        <Image
+          alt="Generated image"
+          className="object-cover"
+          fill
+          sizes="48px"
+          src={`data:image/png;base64,${base64}`}
+          unoptimized
+        />
+      </button>
+
+      <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
+        <DialogContent className="max-w-3xl p-2" showCloseButton={false}>
+          <DialogTitle className="sr-only">Generated Image</DialogTitle>
+          <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+            <Image
+              alt="Generated image"
+              className="object-contain"
+              fill
+              sizes="(max-width: 768px) 100vw, 768px"
+              src={`data:image/png;base64,${base64}`}
+              unoptimized
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 type ActionNodeProps = NodeProps & {
   data?: WorkflowNodeData;
   id: string;
@@ -174,7 +217,6 @@ type ActionNodeProps = NodeProps & {
 export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   const selectedExecutionId = useAtomValue(selectedExecutionIdAtom);
   const executionLogs = useAtomValue(executionLogsAtom);
-  const [imageDialogOpen, setImageDialogOpen] = useState(false);
 
   if (!data) {
     return null;
@@ -239,7 +281,6 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   const aiModel = getAiModel();
 
   return (
-    <>
     <Node
       className={cn(
         "relative flex h-48 w-48 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
@@ -260,23 +301,9 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
 
       <div className="flex flex-col items-center justify-center gap-3 p-6">
         {hasGeneratedImage ? (
-          <button
-            className="relative size-12 cursor-zoom-in overflow-hidden rounded-lg transition-transform hover:scale-105"
-            onClick={(e) => {
-              e.stopPropagation();
-              setImageDialogOpen(true);
-            }}
-            type="button"
-          >
-            <Image
-              alt="Generated image"
-              className="object-cover"
-              fill
-              sizes="48px"
-              src={`data:image/png;base64,${(nodeLog.output as { base64: string }).base64}`}
-              unoptimized
-            />
-          </button>
+          <GeneratedImageThumbnail
+            base64={(nodeLog.output as { base64: string }).base64}
+          />
         ) : (
           getProviderLogo(actionType)
         )}
@@ -291,28 +318,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
           {aiModel && <ModelBadge model={aiModel} />}
         </div>
       </div>
-
     </Node>
-
-    {/* Image zoom dialog */}
-    {hasGeneratedImage && (
-      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
-        <DialogContent className="max-w-3xl p-2" showCloseButton={false}>
-          <DialogTitle className="sr-only">Generated Image</DialogTitle>
-          <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-            <Image
-              alt="Generated image"
-              className="object-contain"
-              fill
-              sizes="(max-width: 768px) 100vw, 768px"
-              src={`data:image/png;base64,${(nodeLog.output as { base64: string }).base64}`}
-              unoptimized
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    )}
-  </>
   );
 });
 
