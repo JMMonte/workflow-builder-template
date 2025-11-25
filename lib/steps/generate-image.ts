@@ -20,11 +20,11 @@ export async function generateImageStep(input: {
     ? await fetchCredentials(input.integrationId)
     : {};
 
-  const apiKey = credentials.OPENAI_API_KEY || credentials.AI_GATEWAY_API_KEY;
+  const apiKey = credentials.AI_GATEWAY_API_KEY || credentials.OPENAI_API_KEY;
 
   if (!apiKey) {
     throw new Error(
-      "OPENAI_API_KEY or AI_GATEWAY_API_KEY is not configured. Please add it in Project Integrations."
+      "AI_GATEWAY_API_KEY or OPENAI_API_KEY is not configured. Please add it in Project Integrations."
     );
   }
 

@@ -311,7 +311,7 @@ function _generateGenerateImageStepBody(
   const finalPrompt = (input.imagePrompt as string) || imagePrompt;
   
   const response = await openai.images.generate({
-    model: '${config.imageModel || "dall-e-3"}',
+    model: '${config.imageModel || "gpt-image-1"}',
     prompt: finalPrompt,
     n: 1,
     response_format: 'b64_json',
@@ -504,7 +504,7 @@ export function generateWorkflowSDKCode(
 
   function buildAIImageParams(config: Record<string, unknown>): string[] {
     imports.add("import OpenAI from 'openai';");
-    const imageModel = (config.imageModel as string) || "dall-e-3";
+    const imageModel = (config.imageModel as string) || "gpt-image-1";
     return [
       `model: "${imageModel}"`,
       `prompt: \`${convertTemplateToJS((config.imagePrompt as string) || "")}\``,

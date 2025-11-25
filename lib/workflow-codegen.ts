@@ -442,7 +442,7 @@ export function generateWorkflowCode(
     const imagePrompt =
       (node.data.config?.imagePrompt as string) || "A beautiful landscape";
     const imageModel =
-      (node.data.config?.imageModel as string) || "openai/dall-e-3";
+      (node.data.config?.imageModel as string) || "gpt-image-1";
 
     return [
       `${indent}// Generate image using AI`,
