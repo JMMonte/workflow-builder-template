@@ -304,7 +304,7 @@ function _generateGenerateImageStepBody(
   const imagePrompt = (config.imagePrompt as string) || "";
   const convertedImagePrompt = convertTemplateToJS(imagePrompt);
 
-  return `  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return `  const openai = new OpenAI({ apiKey: process.env.AI_GATEWAY_API_KEY });
   
   // Use template literal with dynamic values from outputs
   const imagePrompt = \`${escapeForTemplateLiteral(convertedImagePrompt)}\`;
@@ -503,12 +503,15 @@ export function generateWorkflowSDKCode(
   }
 
   function buildAIImageParams(config: Record<string, unknown>): string[] {
-    imports.add("import OpenAI from 'openai';");
+    imports.add(
+      "import { experimental_generateImage as generateImage } from 'ai';"
+    );
     const imageModel = (config.imageModel as string) || "bfl/flux-2-pro";
     return [
       `model: "${imageModel}"`,
       `prompt: \`${convertTemplateToJS((config.imagePrompt as string) || "")}\``,
-      "apiKey: process.env.OPENAI_API_KEY!",
+      'size: "1024x1024"',
+      "providerOptions: { openai: { apiKey: process.env.AI_GATEWAY_API_KEY! } }",
     ];
   }
 

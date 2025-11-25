@@ -438,7 +438,9 @@ export function generateWorkflowCode(
     indent: string,
     varName: string
   ): string[] {
-    imports.add("import { generateImage } from './integrations/ai';");
+    imports.add(
+      "import { experimental_generateImage as generateImage } from 'ai';"
+    );
     const imagePrompt =
       (node.data.config?.imagePrompt as string) || "A beautiful landscape";
     const imageModel =
@@ -449,6 +451,7 @@ export function generateWorkflowCode(
       `${indent}const ${varName} = await generateImage({`,
       `${indent}  model: "${imageModel}",`,
       `${indent}  prompt: \`${imagePrompt}\`,`,
+      `${indent}  size: "1024x1024",`,
       `${indent}});`,
     ];
   }
