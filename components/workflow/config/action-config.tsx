@@ -508,12 +508,6 @@ function GenerateImageFields({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="bfl/flux-2-pro">FLUX.2 Pro</SelectItem>
-            <SelectItem value="google/gemini-2.5-flash-image">
-              Google Gemini 2.5 Flash Image
-            </SelectItem>
-            <SelectItem value="google/gemini-2.5-flash-image-preview">
-              Google Gemini 2.5 Flash Image Preview
-            </SelectItem>
           </SelectContent>
         </Select>
       </div>
