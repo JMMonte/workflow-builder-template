@@ -7,7 +7,7 @@
 import "server-only";
 
 import type { ImageModelV2 } from "@ai-sdk/provider";
-import { experimental_generateImage as generateImage } from "ai";
+import { createGateway, experimental_generateImage as generateImage } from "ai";
 import { fetchCredentials } from "../credential-fetcher";
 import { getErrorMessageAsync } from "../utils";
 
@@ -37,15 +37,14 @@ export async function generateImageStep(input: {
   }
 
   try {
+    const gateway = createGateway({
+      apiKey,
+    });
+
     const result = await generateImage({
-      model: input.imageModel ?? "bfl/flux-2-pro",
+      model: gateway.imageModel((input.imageModel ?? "bfl/flux-2-pro") as any),
       prompt: input.imagePrompt,
       size: "1024x1024",
-      providerOptions: {
-        openai: {
-          apiKey,
-        },
-      },
     });
 
     if (!result.image) {
