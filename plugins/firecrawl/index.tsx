@@ -9,10 +9,6 @@ import { ScrapeConfigFields } from "./steps/scrape/config";
 import { SearchConfigFields } from "./steps/search/config";
 import { testFirecrawl } from "./test";
 
-// Export step functions for workflow execution
-export { firecrawlScrapeStep } from "./steps/scrape/step";
-export { firecrawlSearchStep } from "./steps/search/step";
-
 const firecrawlPlugin: IntegrationPlugin = {
   type: "firecrawl",
   label: "Firecrawl",

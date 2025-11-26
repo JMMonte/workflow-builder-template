@@ -6,9 +6,6 @@ import { LinearSettings } from "./settings";
 import { CreateTicketConfigFields } from "./steps/create-ticket/config";
 import { testLinear } from "./test";
 
-// Export step functions for workflow execution
-export { createTicketStep } from "./steps/create-ticket/step";
-
 const linearPlugin: IntegrationPlugin = {
   type: "linear",
   label: "Linear",

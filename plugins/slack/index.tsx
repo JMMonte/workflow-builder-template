@@ -6,9 +6,6 @@ import { SlackSettings } from "./settings";
 import { SendSlackMessageConfigFields } from "./steps/send-slack-message/config";
 import { testSlack } from "./test";
 
-// Export step functions for workflow execution
-export { sendSlackMessageStep } from "./steps/send-slack-message/step";
-
 const slackPlugin: IntegrationPlugin = {
   type: "slack",
   label: "Slack",

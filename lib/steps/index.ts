@@ -4,17 +4,13 @@
  * without code generation or eval()
  */
 
-import type {
-  generateImageStep,
-  generateTextStep,
-} from "../../plugins/ai-gateway";
-import type {
-  firecrawlScrapeStep,
-  firecrawlSearchStep,
-} from "../../plugins/firecrawl";
-import type { createTicketStep } from "../../plugins/linear";
-import type { sendEmailStep } from "../../plugins/resend";
-import type { sendSlackMessageStep } from "../../plugins/slack";
+import type { generateImageStep } from "../../plugins/ai-gateway/steps/generate-image/step";
+import type { generateTextStep } from "../../plugins/ai-gateway/steps/generate-text/step";
+import type { firecrawlScrapeStep } from "../../plugins/firecrawl/steps/scrape/step";
+import type { firecrawlSearchStep } from "../../plugins/firecrawl/steps/search/step";
+import type { createTicketStep } from "../../plugins/linear/steps/create-ticket/step";
+import type { sendEmailStep } from "../../plugins/resend/steps/send-email/step";
+import type { sendSlackMessageStep } from "../../plugins/slack/steps/send-slack-message/step";
 import type { conditionStep } from "./condition";
 import type { databaseQueryStep } from "./database-query";
 import type { httpRequestStep } from "./http-request";
@@ -38,29 +34,29 @@ export const stepRegistry: Record<string, StepFunction> = {
       input as Parameters<typeof conditionStep>[0]
     ),
   "Send Email": async (input) =>
-    (await import("../../plugins/resend")).sendEmailStep(
+    (await import("../../plugins/resend/steps/send-email/step")).sendEmailStep(
       input as Parameters<typeof sendEmailStep>[0]
     ),
   "Send Slack Message": async (input) =>
-    (await import("../../plugins/slack")).sendSlackMessageStep(
-      input as Parameters<typeof sendSlackMessageStep>[0]
-    ),
+    (
+      await import("../../plugins/slack/steps/send-slack-message/step")
+    ).sendSlackMessageStep(input as Parameters<typeof sendSlackMessageStep>[0]),
   "Create Ticket": async (input) =>
-    (await import("../../plugins/linear")).createTicketStep(
-      input as Parameters<typeof createTicketStep>[0]
-    ),
+    (
+      await import("../../plugins/linear/steps/create-ticket/step")
+    ).createTicketStep(input as Parameters<typeof createTicketStep>[0]),
   "Find Issues": async (input) =>
-    (await import("../../plugins/linear")).createTicketStep(
-      input as Parameters<typeof createTicketStep>[0]
-    ), // TODO: Implement separate findIssuesStep
+    (
+      await import("../../plugins/linear/steps/create-ticket/step")
+    ).createTicketStep(input as Parameters<typeof createTicketStep>[0]), // TODO: Implement separate findIssuesStep
   "Generate Text": async (input) =>
-    (await import("../../plugins/ai-gateway")).generateTextStep(
-      input as Parameters<typeof generateTextStep>[0]
-    ),
+    (
+      await import("../../plugins/ai-gateway/steps/generate-text/step")
+    ).generateTextStep(input as Parameters<typeof generateTextStep>[0]),
   "Generate Image": async (input) =>
-    (await import("../../plugins/ai-gateway")).generateImageStep(
-      input as Parameters<typeof generateImageStep>[0]
-    ),
+    (
+      await import("../../plugins/ai-gateway/steps/generate-image/step")
+    ).generateImageStep(input as Parameters<typeof generateImageStep>[0]),
   "Log Node Start": async (input) =>
     (await import("./logging")).logNodeStartStep(
       input as Parameters<typeof logNodeStartStep>[0]
@@ -70,13 +66,13 @@ export const stepRegistry: Record<string, StepFunction> = {
       input as Parameters<typeof logNodeCompleteStep>[0]
     ),
   Scrape: async (input) =>
-    (await import("../../plugins/firecrawl")).firecrawlScrapeStep(
-      input as Parameters<typeof firecrawlScrapeStep>[0]
-    ),
+    (
+      await import("../../plugins/firecrawl/steps/scrape/step")
+    ).firecrawlScrapeStep(input as Parameters<typeof firecrawlScrapeStep>[0]),
   Search: async (input) =>
-    (await import("../../plugins/firecrawl")).firecrawlSearchStep(
-      input as Parameters<typeof firecrawlSearchStep>[0]
-    ),
+    (
+      await import("../../plugins/firecrawl/steps/search/step")
+    ).firecrawlSearchStep(input as Parameters<typeof firecrawlSearchStep>[0]),
 };
 
 // Helper to check if a step exists

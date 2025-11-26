@@ -8,10 +8,6 @@ import { GenerateImageConfigFields } from "./steps/generate-image/config";
 import { GenerateTextConfigFields } from "./steps/generate-text/config";
 import { testAiGateway } from "./test";
 
-// Export step functions for workflow execution
-export { generateTextStep } from "./steps/generate-text/step";
-export { generateImageStep } from "./steps/generate-image/step";
-
 const aiGatewayPlugin: IntegrationPlugin = {
   type: "ai-gateway",
   label: "AI Gateway",
