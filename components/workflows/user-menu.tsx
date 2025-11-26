@@ -79,9 +79,9 @@ export const UserMenu = () => {
       <div className="flex items-center gap-2">
         <AuthDialog>
           <Button
-            className="h-8 border disabled:opacity-100 disabled:[&>*]:text-muted-foreground"
+            className="h-9 disabled:opacity-100 disabled:[&>*]:text-muted-foreground"
             size="sm"
-            variant="secondary"
+            variant="default"
           >
             Sign In
           </Button>
@@ -94,10 +94,10 @@ export const UserMenu = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          className="relative h-8 w-8 rounded-full border p-0"
+          className="relative h-9 w-9 rounded-full border p-0"
           variant="ghost"
         >
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-9 w-9">
             <AvatarImage
               alt={session?.user?.name || ""}
               src={session?.user?.image || ""}

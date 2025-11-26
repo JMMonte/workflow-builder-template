@@ -409,11 +409,11 @@ const SingleProviderButton = ({
   const isLoading = loadingProvider === provider;
   return (
     <Button
-      className="h-8 gap-1.5 border px-2 sm:px-3"
+      className="h-9 gap-1.5 px-2 sm:px-3"
       disabled={loadingProvider !== null}
       onClick={() => onSignIn(provider as "github" | "google" | "vercel")}
       size="sm"
-      variant="secondary"
+      variant="default"
     >
       {isLoading ? (
         <Spinner className="size-3.5" />
