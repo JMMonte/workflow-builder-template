@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
-import { authClient, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 import {
   currentWorkflowNameAtom,
   edgesAtom,
@@ -34,9 +34,21 @@ function createDefaultTriggerNode() {
 
 const Home = () => {
   const router = useRouter();
-  const { data: session } = useSession();
   const nodes = useAtomValue(nodesAtom);
   const edges = useAtomValue(edgesAtom);
+  const isAnonymousUser = useCallback(
+    (
+      user?: { name?: string | null; email?: string | null } & Record<
+        string,
+        unknown
+      >
+    ) =>
+      !user ||
+      user.name === "Anonymous" ||
+      (user.email ?? "").startsWith("temp-") ||
+      Boolean((user as { isAnonymous?: boolean }).isAnonymous),
+    []
+  );
   const setNodes = useSetAtom(nodesAtom);
   const setEdges = useSetAtom(edgesAtom);
   const setCurrentWorkflowName = useSetAtom(currentWorkflowNameAtom);
@@ -46,6 +58,7 @@ const Home = () => {
   );
   const hasCreatedWorkflowRef = useRef(false);
   const currentWorkflowName = useAtomValue(currentWorkflowNameAtom);
+  const { data: session, isPending } = useSession();
 
   // Reset sidebar animation state when on homepage
   useEffect(() => {
@@ -57,20 +70,23 @@ const Home = () => {
     document.title = `${currentWorkflowName} - AI Workflow Builder`;
   }, [currentWorkflowName]);
 
-  // Helper to create anonymous session if needed
-  const ensureSession = useCallback(async () => {
-    if (!session) {
-      await authClient.signIn.anonymous();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }, [session]);
-
   // Handler to add the first node (replaces the "add" node)
   const handleAddNode = useCallback(() => {
+    const isAuthed = !!session?.user && !isAnonymousUser(session.user);
+    if (!isAuthed) {
+      toast.error("Please sign in to start building workflows");
+      return;
+    }
     const newNode: WorkflowNode = createDefaultTriggerNode();
     // Replace all nodes (removes the "add" node)
     setNodes([newNode]);
-  }, [setNodes]);
+  }, [isAnonymousUser, session?.user, setNodes]);
+  const ensureSession = useCallback(() => {
+    if (isPending) {
+      return false;
+    }
+    return !!(session?.user && !isAnonymousUser(session.user));
+  }, [isAnonymousUser, isPending, session?.user]);
 
   // Initialize with a temporary "add" node on mount
   useEffect(() => {
@@ -105,7 +121,9 @@ const Home = () => {
       hasCreatedWorkflowRef.current = true;
 
       try {
-        await ensureSession();
+        if (!ensureSession()) {
+          return;
+        }
 
         // Create workflow with all real nodes
         const newWorkflow = await api.workflow.create({

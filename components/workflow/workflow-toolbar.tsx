@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -79,8 +79,6 @@ import {
   type WorkflowNode,
 } from "@/lib/workflow-store";
 import { Panel } from "../ai-elements/panel";
-import { DeployButton } from "../deploy-button";
-import { GitHubStarsButton } from "../github-stars-button";
 import { WorkflowIcon } from "../ui/workflow-icon";
 import { UserMenu } from "../workflows/user-menu";
 import { PanelInner } from "./node-config-panel";
@@ -327,6 +325,19 @@ function useWorkflowState() {
   const [canUndo] = useAtom(canUndoAtom);
   const [canRedo] = useAtom(canRedoAtom);
   const { data: session } = useSession();
+  const isAnonymousUser = useCallback(
+    (
+      user?: { name?: string | null; email?: string | null } & Record<
+        string,
+        unknown
+      >
+    ) =>
+      !user ||
+      user.name === "Anonymous" ||
+      (user.email ?? "").startsWith("temp-") ||
+      Boolean((user as { isAnonymous?: boolean }).isAnonymous),
+    []
+  );
   const setActiveTab = useSetAtom(propertiesPanelActiveTabAtom);
   const setSelectedNodeId = useSetAtom(selectedNodeAtom);
   const setSelectedExecutionId = useSetAtom(selectedExecutionIdAtom);
@@ -359,8 +370,12 @@ function useWorkflowState() {
         console.error("Failed to load workflows:", error);
       }
     };
+    const user = session?.user;
+    if (!user || isAnonymousUser(user)) {
+      return;
+    }
     loadAllWorkflows();
-  }, []);
+  }, [isAnonymousUser, session?.user]);
 
   return {
     nodes,
@@ -1185,12 +1200,6 @@ export const WorkflowToolbar = ({ workflowId }: WorkflowToolbarProps) => {
             workflowId={workflowId}
           />
           <div className="flex items-center gap-2">
-            {!workflowId && (
-              <>
-                <GitHubStarsButton />
-                <DeployButton />
-              </>
-            )}
             <UserMenu />
           </div>
         </div>

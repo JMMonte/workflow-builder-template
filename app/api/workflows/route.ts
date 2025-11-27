@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     });
 
     if (!session?.user) {
-      return NextResponse.json([], { status: 200 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userWorkflows = await db

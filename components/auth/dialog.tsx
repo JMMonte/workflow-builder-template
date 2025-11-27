@@ -23,6 +23,9 @@ import {
 
 type AuthDialogProps = {
   children?: ReactNode;
+  forceOpen?: boolean;
+  defaultMode?: "signin" | "signup";
+  onOpenChange?: (open: boolean) => void;
 };
 
 const VercelIcon = ({ className = "mr-2 h-3 w-3" }: { className?: string }) => (
@@ -442,7 +445,7 @@ const SingleProviderButton = ({
 };
 
 type EmailOnlyDialogProps = {
-  children: ReactNode;
+  children?: ReactNode;
   open: boolean;
   mode: "signin" | "signup";
   name: string;
@@ -451,6 +454,7 @@ type EmailOnlyDialogProps = {
   error: string;
   loading: boolean;
   onOpenChange: (open: boolean) => void;
+  forceOpen?: boolean;
   onNameChange: (name: string) => void;
   onEmailChange: (email: string) => void;
   onPasswordChange: (password: string) => void;
@@ -468,48 +472,54 @@ const EmailOnlyDialog = ({
   error,
   loading,
   onOpenChange,
+  forceOpen,
   onNameChange,
   onEmailChange,
   onPasswordChange,
   onSubmit,
   onToggleMode,
-}: EmailOnlyDialogProps) => (
-  <Dialog onOpenChange={onOpenChange} open={open}>
-    <DialogTrigger asChild>
-      {children || (
-        <Button size="sm" variant="default">
-          Sign In
-        </Button>
-      )}
-    </DialogTrigger>
-    <DialogContent className="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>
-          {mode === "signin" ? "Sign In" : "Create Account"}
-        </DialogTitle>
-        <DialogDescription>
-          {mode === "signin"
-            ? "Sign in to your account to continue"
-            : "Create a new account to get started"}
-        </DialogDescription>
-      </DialogHeader>
+}: EmailOnlyDialogProps) => {
+  const controlledOpen = forceOpen ?? open;
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (forceOpen !== undefined) {
+      onOpenChange(nextOpen);
+      return;
+    }
+    onOpenChange(nextOpen);
+  };
 
-      <EmailForm
-        email={email}
-        error={error}
-        loading={loading}
-        mode={mode}
-        name={name}
-        onEmailChange={onEmailChange}
-        onNameChange={onNameChange}
-        onPasswordChange={onPasswordChange}
-        onSubmit={onSubmit}
-        onToggleMode={onToggleMode}
-        password={password}
-      />
-    </DialogContent>
-  </Dialog>
-);
+  return (
+    <Dialog onOpenChange={handleOpenChange} open={controlledOpen}>
+      {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {mode === "signin" ? "Sign In" : "Create Account"}
+          </DialogTitle>
+          <DialogDescription>
+            {mode === "signin"
+              ? "Sign in to your account to continue"
+              : "Create a new account to get started"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <EmailForm
+          email={email}
+          error={error}
+          loading={loading}
+          mode={mode}
+          name={name}
+          onEmailChange={onEmailChange}
+          onNameChange={onNameChange}
+          onPasswordChange={onPasswordChange}
+          onSubmit={onSubmit}
+          onToggleMode={onToggleMode}
+          password={password}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 type MultiProviderDialogProps = EmailOnlyDialogProps & {
   enabledProviders: {
@@ -531,6 +541,7 @@ const MultiProviderDialog = ({
   password,
   error,
   loading,
+  forceOpen,
   enabledProviders,
   loadingProvider,
   onOpenChange,
@@ -541,20 +552,23 @@ const MultiProviderDialog = ({
   onToggleMode,
   onSignIn,
 }: MultiProviderDialogProps) => {
+  const controlledOpen = forceOpen ?? open;
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (forceOpen !== undefined) {
+      onOpenChange(nextOpen);
+      return;
+    }
+    onOpenChange(nextOpen);
+  };
+
   const hasSocialProviders =
     enabledProviders.vercel ||
     enabledProviders.github ||
     enabledProviders.google;
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogTrigger asChild>
-        {children || (
-          <Button size="sm" variant="default">
-            Sign In
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog onOpenChange={handleOpenChange} open={controlledOpen}>
+      {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
@@ -610,9 +624,14 @@ const MultiProviderDialog = ({
   );
 };
 
-export const AuthDialog = ({ children }: AuthDialogProps) => {
+export const AuthDialog = ({
+  children,
+  forceOpen,
+  defaultMode = "signin",
+  onOpenChange,
+}: AuthDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(defaultMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -624,6 +643,15 @@ export const AuthDialog = ({ children }: AuthDialogProps) => {
 
   const enabledProviders = getEnabledAuthProviders();
   const singleProvider = getSingleProvider();
+  const controlledOpen = forceOpen ?? open;
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (forceOpen !== undefined) {
+      onOpenChange?.(nextOpen);
+      return;
+    }
+    setOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
 
   const { handleSocialSignIn, handleEmailAuth, toggleMode } = useAuthHandlers({
     mode,
@@ -652,16 +680,17 @@ export const AuthDialog = ({ children }: AuthDialogProps) => {
       <EmailOnlyDialog
         email={email}
         error={error}
+        forceOpen={forceOpen}
         loading={loading}
         mode={mode}
         name={name}
         onEmailChange={setEmail}
         onNameChange={setName}
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         onPasswordChange={setPassword}
         onSubmit={handleEmailAuth}
         onToggleMode={toggleMode}
-        open={open}
+        open={controlledOpen}
         password={password}
       >
         {children}
@@ -674,18 +703,19 @@ export const AuthDialog = ({ children }: AuthDialogProps) => {
       email={email}
       enabledProviders={enabledProviders}
       error={error}
+      forceOpen={forceOpen}
       loading={loading}
       loadingProvider={loadingProvider}
       mode={mode}
       name={name}
       onEmailChange={setEmail}
       onNameChange={setName}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
       onPasswordChange={setPassword}
       onSignIn={handleSocialSignIn}
       onSubmit={handleEmailAuth}
       onToggleMode={toggleMode}
-      open={open}
+      open={controlledOpen}
       password={password}
     >
       {children}
