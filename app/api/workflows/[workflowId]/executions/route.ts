@@ -1,8 +1,8 @@
 import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflowExecutions, workflows } from "@/lib/db/schema";
+import { requireTeamContext } from "@/lib/team-context";
 
 export async function GET(
   request: Request,
@@ -10,19 +10,17 @@ export async function GET(
 ) {
   try {
     const { workflowId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     // Verify workflow ownership
     const workflow = await db.query.workflows.findFirst({
       where: and(
         eq(workflows.id, workflowId),
-        eq(workflows.userId, session.user.id)
+        eq(workflows.teamId, teamContext.team.id)
       ),
     });
 
@@ -59,19 +57,17 @@ export async function DELETE(
 ) {
   try {
     const { workflowId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     // Verify workflow ownership
     const workflow = await db.query.workflows.findFirst({
       where: and(
         eq(workflows.id, workflowId),
-        eq(workflows.userId, session.user.id)
+        eq(workflows.teamId, teamContext.team.id)
       ),
     });
 

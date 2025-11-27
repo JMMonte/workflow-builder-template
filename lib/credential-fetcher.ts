@@ -26,6 +26,7 @@ export type WorkflowCredentials = {
   AI_GATEWAY_API_KEY?: string;
   DATABASE_URL?: string;
   FIRECRAWL_API_KEY?: string;
+  CUSTOM?: Record<string, string>;
 };
 
 function mapResendConfig(config: IntegrationConfig): WorkflowCredentials {
@@ -82,6 +83,24 @@ function mapFirecrawlConfig(config: IntegrationConfig): WorkflowCredentials {
   return creds;
 }
 
+function mapCustomConfig(config: IntegrationConfig): WorkflowCredentials {
+  const fields = config.customFields || [];
+  const mapped: Record<string, string> = {};
+
+  for (const field of fields) {
+    if (!field.key) {
+      continue;
+    }
+    mapped[field.key] = field.value || "";
+  }
+
+  if (Object.keys(mapped).length === 0) {
+    return {};
+  }
+
+  return { CUSTOM: mapped };
+}
+
 /**
  * Map integration config to WorkflowCredentials format
  */
@@ -107,6 +126,9 @@ function mapIntegrationConfig(
   if (integrationType === "firecrawl") {
     return mapFirecrawlConfig(config);
   }
+  if (integrationType === "custom") {
+    return mapCustomConfig(config);
+  }
   return {};
 }
 
@@ -117,11 +139,12 @@ function mapIntegrationConfig(
  * @returns WorkflowCredentials object with the integration's credentials
  */
 export async function fetchCredentials(
-  integrationId: string
+  integrationId: string,
+  teamId?: string
 ): Promise<WorkflowCredentials> {
   console.log("[Credential Fetcher] Fetching integration:", integrationId);
 
-  const integration = await getIntegrationById(integrationId);
+  const integration = await getIntegrationById(integrationId, teamId);
 
   if (!integration) {
     console.log("[Credential Fetcher] Integration not found");
@@ -148,7 +171,8 @@ export async function fetchCredentials(
  * Now fetches by integration ID instead of workflow ID
  */
 export function fetchIntegrationCredentials(
-  integrationId: string
+  integrationId: string,
+  teamId?: string
 ): Promise<WorkflowCredentials> {
-  return fetchCredentials(integrationId);
+  return fetchCredentials(integrationId, teamId);
 }

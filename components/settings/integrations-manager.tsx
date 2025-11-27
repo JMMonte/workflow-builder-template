@@ -26,6 +26,7 @@ const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
   database: "Database",
   "ai-gateway": "AI Gateway",
   firecrawl: "Firecrawl",
+  custom: "Custom",
 };
 
 type IntegrationsManagerProps = {
@@ -125,57 +126,67 @@ export function IntegrationsManager({
         </div>
       ) : (
         <div className="space-y-2">
-          {integrations.map((integration) => (
-            <div
-              className="flex items-center justify-between rounded-lg border p-4"
-              key={integration.id}
-            >
-              <div className="flex items-center gap-3">
-                <IntegrationIcon
-                  className="size-8"
-                  integration={
-                    integration.type === "ai-gateway"
-                      ? "vercel"
-                      : integration.type
-                  }
-                />
-                <div>
-                  <p className="font-medium text-sm">{integration.name}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {INTEGRATION_TYPE_LABELS[integration.type]}
-                  </p>
+          {integrations.map((integration) => {
+            const isTestable = integration.type !== "custom";
+
+            return (
+              <div
+                className="flex items-center justify-between rounded-lg border p-4"
+                key={integration.id}
+              >
+                <div className="flex items-center gap-3">
+                  <IntegrationIcon
+                    className="size-8"
+                    integration={
+                      integration.type === "ai-gateway"
+                        ? "vercel"
+                        : integration.type
+                    }
+                  />
+                  <div>
+                    <p className="font-medium text-sm">{integration.name}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {INTEGRATION_TYPE_LABELS[integration.type]}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isTestable ? (
+                    <Button
+                      disabled={testingId === integration.id}
+                      onClick={() => handleTest(integration.id)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {testingId === integration.id ? (
+                        <Spinner className="size-4" />
+                      ) : (
+                        "Test"
+                      )}
+                    </Button>
+                  ) : (
+                    <Button disabled size="sm" variant="outline">
+                      No test
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setEditingIntegration(integration)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    onClick={() => setDeletingId(integration.id)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  disabled={testingId === integration.id}
-                  onClick={() => handleTest(integration.id)}
-                  size="sm"
-                  variant="outline"
-                >
-                  {testingId === integration.id ? (
-                    <Spinner className="size-4" />
-                  ) : (
-                    "Test"
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setEditingIntegration(integration)}
-                  size="sm"
-                  variant="outline"
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <Button
-                  onClick={() => setDeletingId(integration.id)}
-                  size="sm"
-                  variant="outline"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -1,27 +1,26 @@
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflows } from "@/lib/db/schema";
+import { requireTeamContext } from "@/lib/team-context";
 
 export async function GET(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const userWorkflows = await db
       .select()
       .from(workflows)
-      .where(eq(workflows.userId, session.user.id))
+      .where(eq(workflows.teamId, teamContext.team.id))
       .orderBy(desc(workflows.updatedAt));
 
     const mappedWorkflows = userWorkflows.map((workflow) => ({
       ...workflow,
+      teamId: workflow.teamId,
       createdAt: workflow.createdAt.toISOString(),
       updatedAt: workflow.updatedAt.toISOString(),
     }));

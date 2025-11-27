@@ -5,6 +5,8 @@ import { db } from "./db";
 import {
   accounts,
   sessions,
+  teamMembers,
+  teams,
   users,
   verifications,
   workflowExecutionLogs,
@@ -19,6 +21,8 @@ const schema = {
   session: sessions,
   account: accounts,
   verification: verifications,
+  teams,
+  teamMembers,
   workflows,
   workflowExecutions,
   workflowExecutionLogs,

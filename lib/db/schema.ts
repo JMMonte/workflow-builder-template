@@ -1,5 +1,12 @@
 import { relations } from "drizzle-orm";
-import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { generateId } from "../utils/id";
 
 // Better Auth tables
@@ -55,6 +62,40 @@ export const verifications = pgTable("verifications", {
   updatedAt: timestamp("updated_at"),
 });
 
+// Teams
+export const teams = pgTable("teams", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: text("role").notNull().$type<"owner" | "member">().default("member"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    teamMembershipUnique: uniqueIndex("team_members_team_id_user_id_unique").on(
+      table.teamId,
+      table.userId
+    ),
+  })
+);
+
 // Workflows table with user association
 export const workflows = pgTable("workflows", {
   id: text("id")
@@ -62,6 +103,9 @@ export const workflows = pgTable("workflows", {
     .$defaultFn(() => generateId()),
   name: text("name").notNull(),
   description: text("description"),
+  teamId: text("team_id")
+    .notNull()
+    .references(() => teams.id),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
@@ -78,6 +122,9 @@ export const integrations = pgTable("integrations", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => generateId()),
+  teamId: text("team_id")
+    .notNull()
+    .references(() => teams.id),
   userId: text("user_id")
     .notNull()
     .references(() => users.id),
@@ -85,7 +132,13 @@ export const integrations = pgTable("integrations", {
   type: text("type")
     .notNull()
     .$type<
-      "resend" | "linear" | "slack" | "database" | "ai-gateway" | "firecrawl"
+      | "resend"
+      | "linear"
+      | "slack"
+      | "database"
+      | "ai-gateway"
+      | "firecrawl"
+      | "custom"
     >(),
   // biome-ignore lint/suspicious/noExplicitAny: JSONB type - encrypted credentials stored as JSON
   config: jsonb("config").notNull().$type<any>(),
@@ -159,6 +212,10 @@ export type Workflow = typeof workflows.$inferSelect;
 export type NewWorkflow = typeof workflows.$inferInsert;
 export type Integration = typeof integrations.$inferSelect;
 export type NewIntegration = typeof integrations.$inferInsert;
+export type Team = typeof teams.$inferSelect;
+export type NewTeam = typeof teams.$inferInsert;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type NewTeamMember = typeof teamMembers.$inferInsert;
 export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
 export type NewWorkflowExecution = typeof workflowExecutions.$inferInsert;
 export type WorkflowExecutionLog = typeof workflowExecutionLogs.$inferSelect;

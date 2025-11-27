@@ -5,11 +5,21 @@
 
 import type { WorkflowEdge, WorkflowNode } from "./workflow-store";
 
+export const TEAM_STORAGE_KEY = "activeTeamId";
+
+function getStoredTeamId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage.getItem(TEAM_STORAGE_KEY);
+}
+
 // Workflow data types
 export type WorkflowData = {
   id?: string;
   name?: string;
   description?: string;
+  teamId?: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
 };
@@ -17,6 +27,7 @@ export type WorkflowData = {
 export type SavedWorkflow = WorkflowData & {
   id: string;
   name: string;
+  teamId: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -34,12 +45,17 @@ export class ApiError extends Error {
 
 // Helper function to make API calls
 async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers || {});
+  headers.set("Content-Type", "application/json");
+
+  const teamId = getStoredTeamId();
+  if (teamId && !headers.has("x-team-id")) {
+    headers.set("x-team-id", teamId);
+  }
+
   const response = await fetch(endpoint, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -317,7 +333,15 @@ export type IntegrationType =
   | "slack"
   | "database"
   | "ai-gateway"
-  | "firecrawl";
+  | "firecrawl"
+  | "custom";
+
+export type CustomIntegrationField = {
+  key: string;
+  value: string;
+  label?: string;
+  secret?: boolean;
+};
 
 export type IntegrationConfig = {
   apiKey?: string;
@@ -326,10 +350,12 @@ export type IntegrationConfig = {
   url?: string;
   openaiApiKey?: string;
   firecrawlApiKey?: string;
+  customFields?: CustomIntegrationField[];
 };
 
 export type Integration = {
   id: string;
+  teamId: string;
   name: string;
   type: IntegrationType;
   createdAt: string;
@@ -338,6 +364,25 @@ export type Integration = {
 
 export type IntegrationWithConfig = Integration & {
   config: IntegrationConfig;
+};
+
+// Team types
+export type Team = {
+  id: string;
+  name: string;
+  role: "owner" | "member";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TeamMember = {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: "owner" | "member";
+  name: string | null;
+  email: string | null;
+  createdAt: string;
 };
 
 // Integration API
@@ -382,6 +427,41 @@ export const integrationApi = {
         method: "POST",
       }
     ),
+};
+
+// Team API
+export const teamApi = {
+  list: () => apiCall<Team[]>("/api/teams"),
+  create: (name: string) =>
+    apiCall<Team>("/api/teams", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  update: (teamId: string, name: string) =>
+    apiCall<Team>(`/api/teams/${teamId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
+  delete: (teamId: string) =>
+    apiCall<{ success: boolean }>(`/api/teams/${teamId}`, {
+      method: "DELETE",
+    }),
+  members: (teamId: string) =>
+    apiCall<TeamMember[]>(`/api/teams/${teamId}/members`),
+  addMember: (teamId: string, email: string) =>
+    apiCall<TeamMember>(`/api/teams/${teamId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  removeMember: (teamId: string, userId: string) =>
+    apiCall<{ success: boolean }>(`/api/teams/${teamId}/members/${userId}`, {
+      method: "DELETE",
+    }),
+  setActiveTeam: (teamId: string) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(TEAM_STORAGE_KEY, teamId);
+    }
+  },
 };
 
 // User API
@@ -600,6 +680,7 @@ export const workflowApi = {
 export const api = {
   ai: aiApi,
   integration: integrationApi,
+  team: teamApi,
   user: userApi,
   workflow: workflowApi,
 };

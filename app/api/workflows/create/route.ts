@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflows } from "@/lib/db/schema";
+import { requireTeamContext } from "@/lib/team-context";
 import { generateId } from "@/lib/utils/id";
 
 // Helper function to create a default trigger node
@@ -24,12 +24,10 @@ function createDefaultTriggerNode() {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const body = await request.json();
@@ -51,7 +49,7 @@ export async function POST(request: Request) {
     let workflowName = body.name;
     if (body.name === "Untitled Workflow") {
       const userWorkflows = await db.query.workflows.findMany({
-        where: eq(workflows.userId, session.user.id),
+        where: eq(workflows.teamId, teamContext.team.id),
       });
       const count = userWorkflows.length + 1;
       workflowName = `Untitled ${count}`;
@@ -68,7 +66,8 @@ export async function POST(request: Request) {
         description: body.description,
         nodes,
         edges: body.edges,
-        userId: session.user.id,
+        userId: teamContext.session.user.id,
+        teamId: teamContext.team.id,
       })
       .returning();
 

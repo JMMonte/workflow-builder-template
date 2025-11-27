@@ -5,8 +5,8 @@ import { createGateway } from "ai";
 import { NextResponse } from "next/server";
 import postgres from "postgres";
 import { Resend } from "resend";
-import { auth } from "@/lib/auth";
 import { getIntegration } from "@/lib/db/integrations";
+import { requireTeamContext } from "@/lib/team-context";
 
 export type TestConnectionResult = {
   status: "success" | "error";
@@ -18,12 +18,10 @@ export async function POST(
   { params }: { params: Promise<{ integrationId: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const { integrationId } = await params;
@@ -36,7 +34,10 @@ export async function POST(
     }
 
     // Get the integration
-    const integration = await getIntegration(integrationId, session.user.id);
+    const integration = await getIntegration(
+      integrationId,
+      teamContext.team.id
+    );
 
     if (!integration) {
       return NextResponse.json(
@@ -67,6 +68,12 @@ export async function POST(
         result = await testFirecrawlConnection(
           integration.config.firecrawlApiKey
         );
+        break;
+      case "custom":
+        result = {
+          status: "success",
+          message: "Custom integrations do not require a connection test",
+        };
         break;
       default:
         return NextResponse.json(

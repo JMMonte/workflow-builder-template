@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { start } from "workflow/api";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflowExecutions, workflows } from "@/lib/db/schema";
+import { requireTeamContext } from "@/lib/team-context";
 import { executeWorkflow } from "@/lib/workflow-executor.workflow";
 import type { WorkflowEdge, WorkflowNode } from "@/lib/workflow-store";
 
@@ -11,6 +11,7 @@ import type { WorkflowEdge, WorkflowNode } from "@/lib/workflow-store";
 async function executeWorkflowBackground(
   executionId: string,
   workflowId: string,
+  teamId: string | null,
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
   input: Record<string, unknown>
@@ -35,6 +36,7 @@ async function executeWorkflowBackground(
         edges,
         triggerInput: input,
         executionId,
+        teamId: teamId || undefined,
         workflowId, // Pass workflow ID so steps can fetch credentials
       },
     ]);
@@ -66,13 +68,10 @@ export async function POST(
   try {
     const { workflowId } = await context.params;
 
-    // Get session
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     // Get workflow and verify ownership
@@ -87,7 +86,7 @@ export async function POST(
       );
     }
 
-    if (workflow.userId !== session.user.id) {
+    if (workflow.teamId !== teamContext.team.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -100,7 +99,7 @@ export async function POST(
       .insert(workflowExecutions)
       .values({
         workflowId,
-        userId: session.user.id,
+        userId: teamContext.session.user.id,
         status: "running",
         input,
       })
@@ -112,6 +111,7 @@ export async function POST(
     executeWorkflowBackground(
       execution.id,
       workflowId,
+      workflow.teamId,
       workflow.nodes as WorkflowNode[],
       workflow.edges as WorkflowEdge[],
       input

@@ -100,7 +100,15 @@ export type IntegrationType =
   | "slack"
   | "database"
   | "ai-gateway"
-  | "firecrawl";
+  | "firecrawl"
+  | "custom";
+
+export type CustomIntegrationField = {
+  key: string;
+  value: string;
+  label?: string;
+  secret?: boolean;
+};
 
 export type IntegrationConfig = {
   // Resend
@@ -115,10 +123,13 @@ export type IntegrationConfig = {
   openaiApiKey?: string;
   // Firecrawl
   firecrawlApiKey?: string;
+  // Custom
+  customFields?: CustomIntegrationField[];
 };
 
 export type DecryptedIntegration = {
   id: string;
+  teamId: string;
   userId: string;
   name: string;
   type: IntegrationType;
@@ -131,19 +142,14 @@ export type DecryptedIntegration = {
  * Get all integrations for a user, optionally filtered by type
  */
 export async function getIntegrations(
-  userId: string,
+  teamId: string,
   type?: IntegrationType
 ): Promise<DecryptedIntegration[]> {
-  const conditions = [eq(integrations.userId, userId)];
+  const whereClause = type
+    ? and(eq(integrations.teamId, teamId), eq(integrations.type, type))
+    : eq(integrations.teamId, teamId);
 
-  if (type) {
-    conditions.push(eq(integrations.type, type));
-  }
-
-  const results = await db
-    .select()
-    .from(integrations)
-    .where(and(...conditions));
+  const results = await db.select().from(integrations).where(whereClause);
 
   return results.map((integration) => ({
     ...integration,
@@ -156,13 +162,13 @@ export async function getIntegrations(
  */
 export async function getIntegration(
   integrationId: string,
-  userId: string
+  teamId: string
 ): Promise<DecryptedIntegration | null> {
   const result = await db
     .select()
     .from(integrations)
     .where(
-      and(eq(integrations.id, integrationId), eq(integrations.userId, userId))
+      and(eq(integrations.id, integrationId), eq(integrations.teamId, teamId))
     )
     .limit(1);
 
@@ -180,12 +186,17 @@ export async function getIntegration(
  * Get a single integration by ID without user check (for system use during workflow execution)
  */
 export async function getIntegrationById(
-  integrationId: string
+  integrationId: string,
+  teamId?: string
 ): Promise<DecryptedIntegration | null> {
+  const whereClause = teamId
+    ? and(eq(integrations.id, integrationId), eq(integrations.teamId, teamId))
+    : eq(integrations.id, integrationId);
+
   const result = await db
     .select()
     .from(integrations)
-    .where(eq(integrations.id, integrationId))
+    .where(whereClause)
     .limit(1);
 
   if (result.length === 0) {
@@ -201,18 +212,21 @@ export async function getIntegrationById(
 /**
  * Create a new integration
  */
-export async function createIntegration(
-  userId: string,
-  name: string,
-  type: IntegrationType,
-  config: IntegrationConfig
-): Promise<DecryptedIntegration> {
+export async function createIntegration(input: {
+  teamId: string;
+  userId: string;
+  name: string;
+  type: IntegrationType;
+  config: IntegrationConfig;
+}): Promise<DecryptedIntegration> {
+  const { teamId, userId, name, type, config } = input;
   const encryptedConfig = encryptConfig(config);
 
   const [result] = await db
     .insert(integrations)
     .values({
       userId,
+      teamId,
       name,
       type,
       config: encryptedConfig,
@@ -230,7 +244,7 @@ export async function createIntegration(
  */
 export async function updateIntegration(
   integrationId: string,
-  userId: string,
+  teamId: string,
   updates: {
     name?: string;
     config?: IntegrationConfig;
@@ -252,7 +266,7 @@ export async function updateIntegration(
     .update(integrations)
     .set(updateData)
     .where(
-      and(eq(integrations.id, integrationId), eq(integrations.userId, userId))
+      and(eq(integrations.id, integrationId), eq(integrations.teamId, teamId))
     )
     .returning();
 
@@ -271,12 +285,12 @@ export async function updateIntegration(
  */
 export async function deleteIntegration(
   integrationId: string,
-  userId: string
+  teamId: string
 ): Promise<boolean> {
   const result = await db
     .delete(integrations)
     .where(
-      and(eq(integrations.id, integrationId), eq(integrations.userId, userId))
+      and(eq(integrations.id, integrationId), eq(integrations.teamId, teamId))
     )
     .returning();
 

@@ -1,9 +1,17 @@
-import { Database, Flame, Sparkles } from "lucide-react";
+import { Database, Plug, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface IntegrationIconProps {
-  integration: "linear" | "resend" | "slack" | "vercel" | "database" | "ai-gateway" | "firecrawl";
+  integration:
+    | "linear"
+    | "resend"
+    | "slack"
+    | "vercel"
+    | "database"
+    | "ai-gateway"
+    | "firecrawl"
+    | "custom";
   className?: string;
 }
 
@@ -84,6 +92,10 @@ export function IntegrationIcon({
 
   if (integration === "firecrawl") {
     return <FirecrawlIcon className={cn("text-foreground", className)} />;
+  }
+
+  if (integration === "custom") {
+    return <Plug className={cn("text-foreground", className)} />;
   }
 
   return (

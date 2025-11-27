@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import {
   createIntegration,
   getIntegrations,
   type IntegrationConfig,
   type IntegrationType,
 } from "@/lib/db/integrations";
+import { requireTeamContext } from "@/lib/team-context";
 
 export type GetIntegrationsResponse = {
   id: string;
+  teamId: string;
   name: string;
   type: IntegrationType;
   createdAt: string;
@@ -24,6 +25,7 @@ export type CreateIntegrationRequest = {
 
 export type CreateIntegrationResponse = {
   id: string;
+  teamId: string;
   name: string;
   type: IntegrationType;
   createdAt: string;
@@ -36,12 +38,10 @@ export type CreateIntegrationResponse = {
  */
 export async function GET(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     // Get optional type filter from query params
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     const typeFilter = searchParams.get("type") as IntegrationType | null;
 
     const integrations = await getIntegrations(
-      session.user.id,
+      teamContext.team.id,
       typeFilter || undefined
     );
 
@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     const response: GetIntegrationsResponse = integrations.map(
       (integration) => ({
         id: integration.id,
+        teamId: integration.teamId,
         name: integration.name,
         type: integration.type,
         createdAt: integration.createdAt.toISOString(),
@@ -83,12 +84,10 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const body: CreateIntegrationRequest = await request.json();
@@ -100,15 +99,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const integration = await createIntegration(
-      session.user.id,
-      body.name,
-      body.type,
-      body.config
-    );
+    const integration = await createIntegration({
+      teamId: teamContext.team.id,
+      userId: teamContext.session.user.id,
+      name: body.name,
+      type: body.type,
+      config: body.config,
+    });
 
     const response: CreateIntegrationResponse = {
       id: integration.id,
+      teamId: integration.teamId,
       name: integration.name,
       type: integration.type,
       createdAt: integration.createdAt.toISOString(),

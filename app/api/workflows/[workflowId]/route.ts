@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflows } from "@/lib/db/schema";
+import { requireTeamContext } from "@/lib/team-context";
 
 export async function GET(
   request: Request,
@@ -10,18 +10,16 @@ export async function GET(
 ) {
   try {
     const { workflowId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const workflow = await db.query.workflows.findFirst({
       where: and(
         eq(workflows.id, workflowId),
-        eq(workflows.userId, session.user.id)
+        eq(workflows.teamId, teamContext.team.id)
       ),
     });
 
@@ -34,6 +32,7 @@ export async function GET(
 
     return NextResponse.json({
       ...workflow,
+      teamId: workflow.teamId,
       createdAt: workflow.createdAt.toISOString(),
       updatedAt: workflow.updatedAt.toISOString(),
     });
@@ -55,19 +54,17 @@ export async function PATCH(
 ) {
   try {
     const { workflowId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     // Verify ownership
     const existingWorkflow = await db.query.workflows.findFirst({
       where: and(
         eq(workflows.id, workflowId),
-        eq(workflows.userId, session.user.id)
+        eq(workflows.teamId, teamContext.team.id)
       ),
     });
 
@@ -111,6 +108,7 @@ export async function PATCH(
 
     return NextResponse.json({
       ...updatedWorkflow,
+      teamId: updatedWorkflow.teamId,
       createdAt: updatedWorkflow.createdAt.toISOString(),
       updatedAt: updatedWorkflow.updatedAt.toISOString(),
     });
@@ -132,19 +130,17 @@ export async function DELETE(
 ) {
   try {
     const { workflowId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     // Verify ownership
     const existingWorkflow = await db.query.workflows.findFirst({
       where: and(
         eq(workflows.id, workflowId),
-        eq(workflows.userId, session.user.id)
+        eq(workflows.teamId, teamContext.team.id)
       ),
     });
 

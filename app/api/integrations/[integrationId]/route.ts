@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import {
   deleteIntegration,
   getIntegration,
   type IntegrationConfig,
+  type IntegrationType,
   updateIntegration,
 } from "@/lib/db/integrations";
+import { requireTeamContext } from "@/lib/team-context";
 
 export type GetIntegrationResponse = {
   id: string;
+  teamId: string;
   name: string;
-  type: string;
+  type: IntegrationType;
   config: IntegrationConfig;
   createdAt: string;
   updatedAt: string;
@@ -31,15 +33,16 @@ export async function GET(
 ) {
   try {
     const { integrationId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
-    const integration = await getIntegration(integrationId, session.user.id);
+    const integration = await getIntegration(
+      integrationId,
+      teamContext.team.id
+    );
 
     if (!integration) {
       return NextResponse.json(
@@ -50,6 +53,7 @@ export async function GET(
 
     const response: GetIntegrationResponse = {
       id: integration.id,
+      teamId: integration.teamId,
       name: integration.name,
       type: integration.type,
       config: integration.config,
@@ -80,19 +84,17 @@ export async function PUT(
 ) {
   try {
     const { integrationId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const body: UpdateIntegrationRequest = await request.json();
 
     const integration = await updateIntegration(
       integrationId,
-      session.user.id,
+      teamContext.team.id,
       body
     );
 
@@ -105,6 +107,7 @@ export async function PUT(
 
     const response: GetIntegrationResponse = {
       id: integration.id,
+      teamId: integration.teamId,
       name: integration.name,
       type: integration.type,
       config: integration.config,
@@ -135,15 +138,13 @@ export async function DELETE(
 ) {
   try {
     const { integrationId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
-    const success = await deleteIntegration(integrationId, session.user.id);
+    const success = await deleteIntegration(integrationId, teamContext.team.id);
 
     if (!success) {
       return NextResponse.json(

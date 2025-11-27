@@ -15,6 +15,13 @@
       "when": 1763686045429,
       "tag": "0001_dark_human_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1764283285565,
+      "tag": "0002_worried_firebird",
+      "breakpoints": true
     }
   ]
 }

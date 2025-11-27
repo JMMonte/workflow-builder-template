@@ -1,8 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflowExecutionLogs, workflowExecutions } from "@/lib/db/schema";
+import { requireTeamContext } from "@/lib/team-context";
 import { redactSensitiveData } from "@/lib/utils/redact";
 
 export async function GET(
@@ -11,12 +11,10 @@ export async function GET(
 ) {
   try {
     const { executionId } = await context.params;
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     // Get the execution and verify ownership
@@ -35,7 +33,7 @@ export async function GET(
     }
 
     // Verify the workflow belongs to the user
-    if (execution.workflow.userId !== session.user.id) {
+    if (execution.workflow.teamId !== teamContext.team.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

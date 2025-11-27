@@ -1,20 +1,18 @@
 import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { workflows } from "@/lib/db/schema";
+import { requireTeamContext } from "@/lib/team-context";
 import { generateId } from "@/lib/utils/id";
 
 const CURRENT_WORKFLOW_NAME = "~~__CURRENT__~~";
 
 export async function GET(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const [currentWorkflow] = await db
@@ -23,7 +21,7 @@ export async function GET(request: Request) {
       .where(
         and(
           eq(workflows.name, CURRENT_WORKFLOW_NAME),
-          eq(workflows.userId, session.user.id)
+          eq(workflows.teamId, teamContext.team.id)
         )
       )
       .orderBy(desc(workflows.updatedAt))
@@ -58,12 +56,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const teamContext = await requireTeamContext(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!teamContext.ok) {
+      return teamContext.response;
     }
 
     const body = await request.json();
@@ -83,7 +79,7 @@ export async function POST(request: Request) {
       .where(
         and(
           eq(workflows.name, CURRENT_WORKFLOW_NAME),
-          eq(workflows.userId, session.user.id)
+          eq(workflows.teamId, teamContext.team.id)
         )
       )
       .limit(1);
@@ -118,7 +114,8 @@ export async function POST(request: Request) {
         description: "Auto-saved current workflow",
         nodes,
         edges,
-        userId: session.user.id,
+        userId: teamContext.session.user.id,
+        teamId: teamContext.team.id,
       })
       .returning();
 

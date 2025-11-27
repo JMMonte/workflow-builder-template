@@ -3,6 +3,8 @@ import postgres from "postgres";
 import {
   accounts,
   sessions,
+  teamMembers,
+  teams,
   users,
   verifications,
   workflowExecutionLogs,
@@ -17,6 +19,8 @@ const schema = {
   sessions,
   accounts,
   verifications,
+  teams,
+  teamMembers,
   workflows,
   workflowExecutions,
   workflowExecutionLogs,

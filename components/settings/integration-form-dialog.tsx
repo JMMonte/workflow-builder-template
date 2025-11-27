@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,13 +23,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { api, type Integration, type IntegrationType } from "@/lib/api-client";
+import {
+  api,
+  type CustomIntegrationField,
+  type Integration,
+  type IntegrationConfig,
+  type IntegrationType,
+  type IntegrationWithConfig,
+} from "@/lib/api-client";
 
 type IntegrationFormDialogProps = {
   open: boolean;
   onClose: () => void;
   onSuccess?: (integrationId: string) => void;
-  integration?: Integration | null;
+  integration?: Integration | IntegrationWithConfig | null;
   mode: "create" | "edit";
   preselectedType?: IntegrationType;
 };
@@ -36,7 +44,7 @@ type IntegrationFormDialogProps = {
 type IntegrationFormData = {
   name: string;
   type: IntegrationType;
-  config: Record<string, string>;
+  config: IntegrationConfig;
 };
 
 const INTEGRATION_TYPES: IntegrationType[] = [
@@ -46,6 +54,7 @@ const INTEGRATION_TYPES: IntegrationType[] = [
   "resend",
   "slack",
   "firecrawl",
+  "custom",
 ];
 
 const INTEGRATION_LABELS: Record<IntegrationType, string> = {
@@ -55,6 +64,7 @@ const INTEGRATION_LABELS: Record<IntegrationType, string> = {
   database: "Database",
   "ai-gateway": "AI Gateway",
   firecrawl: "Firecrawl",
+  custom: "Custom",
 };
 
 export function IntegrationFormDialog({
@@ -66,6 +76,7 @@ export function IntegrationFormDialog({
   preselectedType,
 }: IntegrationFormDialogProps) {
   const [saving, setSaving] = useState(false);
+  const [loadingConfig, setLoadingConfig] = useState(false);
   const [formData, setFormData] = useState<IntegrationFormData>({
     name: "",
     type: preselectedType || "resend",
@@ -73,19 +84,53 @@ export function IntegrationFormDialog({
   });
 
   useEffect(() => {
-    if (integration) {
-      setFormData({
-        name: integration.name,
-        type: integration.type,
-        config: {},
-      });
-    } else {
+    let isMounted = true;
+
+    if (!integration) {
       setFormData({
         name: "",
         type: preselectedType || "resend",
         config: {},
       });
+      setLoadingConfig(false);
+      return () => {
+        isMounted = false;
+      };
     }
+
+    setLoadingConfig(true);
+
+    const fetchIntegration =
+      "config" in integration
+        ? Promise.resolve(integration)
+        : api.integration.get(integration.id);
+
+    fetchIntegration
+      .then((integrationWithConfig) => {
+        if (!isMounted) {
+          return;
+        }
+        setFormData({
+          name: integrationWithConfig.name,
+          type: integrationWithConfig.type,
+          config: integrationWithConfig.config || {},
+        });
+      })
+      .catch((error) => {
+        console.error("Failed to load integration config:", error);
+        if (isMounted) {
+          toast.error("Failed to load integration details");
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoadingConfig(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [integration, preselectedType]);
 
   const handleSave = async () => {
@@ -97,10 +142,37 @@ export function IntegrationFormDialog({
         formData.name.trim() ||
         `${INTEGRATION_LABELS[formData.type]} Integration`;
 
+      let normalizedConfig: IntegrationConfig;
+
+      if (formData.type === "custom") {
+        const cleanedFields =
+          formData.config.customFields
+            ?.map((field) => ({
+              ...field,
+              key: field.key?.trim() || "",
+              value: field.value || "",
+            }))
+            .filter((field) => field.key.length > 0) || [];
+
+        if (cleanedFields.length === 0) {
+          toast.error("Add at least one secret for your custom integration");
+          setSaving(false);
+          return;
+        }
+
+        normalizedConfig = {
+          ...formData.config,
+          customFields: cleanedFields,
+        };
+      } else {
+        const { customFields: _customFields, ...restConfig } = formData.config;
+        normalizedConfig = restConfig;
+      }
+
       if (mode === "edit" && integration) {
         await api.integration.update(integration.id, {
           name: integrationName,
-          config: formData.config,
+          config: normalizedConfig,
         });
         toast.success("Integration updated");
         onSuccess?.(integration.id);
@@ -108,7 +180,7 @@ export function IntegrationFormDialog({
         const newIntegration = await api.integration.create({
           name: integrationName,
           type: formData.type,
-          config: formData.config,
+          config: normalizedConfig,
         });
         toast.success("Integration created");
         onSuccess?.(newIntegration.id);
@@ -129,7 +201,58 @@ export function IntegrationFormDialog({
     });
   };
 
+  const updateCustomField = (
+    index: number,
+    field: keyof CustomIntegrationField,
+    value: string
+  ) => {
+    const fields = formData.config.customFields || [];
+    const nextFields = fields.map((item, i) =>
+      i === index ? { ...item, [field]: value } : item
+    );
+
+    setFormData({
+      ...formData,
+      config: { ...formData.config, customFields: nextFields },
+    });
+  };
+
+  const addCustomField = () => {
+    const fields = formData.config.customFields || [];
+
+    setFormData({
+      ...formData,
+      config: {
+        ...formData.config,
+        customFields: [...fields, { key: "", value: "" }],
+      },
+    });
+  };
+
+  const isDisabled = saving || loadingConfig;
+
+  const removeCustomField = (index: number) => {
+    const fields = formData.config.customFields || [];
+
+    setFormData({
+      ...formData,
+      config: {
+        ...formData.config,
+        customFields: fields.filter((_, i) => i !== index),
+      },
+    });
+  };
+
   const renderConfigFields = () => {
+    if (loadingConfig) {
+      return (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Spinner className="size-4" />
+          <span>Loading integration...</span>
+        </div>
+      );
+    }
+
     switch (formData.type) {
       case "resend":
         return (
@@ -290,6 +413,60 @@ export function IntegrationFormDialog({
             </p>
           </div>
         );
+      case "custom": {
+        const customFields = formData.config.customFields || [
+          { key: "", value: "" },
+        ];
+
+        return (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Secrets</Label>
+              <p className="text-muted-foreground text-xs">
+                Store key/value pairs for your custom integration. Values are
+                encrypted and available to your workflows at runtime.
+              </p>
+            </div>
+
+            {customFields.map((field, index) => (
+              <div
+                className="flex items-center gap-2"
+                key={`${index}-${field.key}`}
+              >
+                <Input
+                  autoFocus={index === customFields.length - 1}
+                  onChange={(e) =>
+                    updateCustomField(index, "key", e.target.value)
+                  }
+                  placeholder="API_KEY"
+                  value={field.key || ""}
+                />
+                <Input
+                  onChange={(e) =>
+                    updateCustomField(index, "value", e.target.value)
+                  }
+                  placeholder="Value"
+                  type="password"
+                  value={field.value || ""}
+                />
+                <Button
+                  className="shrink-0"
+                  disabled={customFields.length === 1}
+                  onClick={() => removeCustomField(index)}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+
+            <Button onClick={addCustomField} size="sm" variant="outline">
+              Add secret
+            </Button>
+          </div>
+        );
+      }
       default:
         return null;
     }
@@ -314,7 +491,7 @@ export function IntegrationFormDialog({
             <div className="space-y-2">
               <Label htmlFor="type">Type</Label>
               <Select
-                disabled={!!preselectedType}
+                disabled={!!preselectedType || isDisabled}
                 onValueChange={(value) =>
                   setFormData({
                     ...formData,
@@ -363,7 +540,7 @@ export function IntegrationFormDialog({
           <Button disabled={saving} onClick={() => onClose()} variant="outline">
             Cancel
           </Button>
-          <Button disabled={saving} onClick={handleSave}>
+          <Button disabled={isDisabled} onClick={handleSave}>
             {saving ? <Spinner className="mr-2 size-4" /> : null}
             {mode === "edit" ? "Update" : "Create"}
           </Button>
