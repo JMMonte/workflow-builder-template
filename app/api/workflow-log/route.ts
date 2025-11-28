@@ -1,7 +1,148 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { workflowExecutionLogs, workflowExecutions } from "@/lib/db/schema";
+import {
+  type WorkflowExecution,
+  workflowExecutionLogs,
+  workflowExecutions,
+} from "@/lib/db/schema";
+
+const executionStatuses: WorkflowExecution["status"][] = [
+  "pending",
+  "running",
+  "success",
+  "error",
+  "cancelled",
+];
+
+const isExecutionStatus = (
+  status: unknown
+): status is WorkflowExecution["status"] =>
+  executionStatuses.includes(status as WorkflowExecution["status"]);
+
+async function startNodeLog(data: {
+  executionId: string;
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  input: unknown;
+}) {
+  const { executionId, nodeId, nodeName, nodeType, input } = data;
+
+  const [log] = await db
+    .insert(workflowExecutionLogs)
+    .values({
+      executionId,
+      nodeId,
+      nodeName,
+      nodeType,
+      status: "running",
+      input,
+      startedAt: new Date(),
+    })
+    .returning();
+
+  return NextResponse.json({
+    logId: log.id,
+    startTime: Date.now(),
+  });
+}
+
+async function completeExecution(data: {
+  executionId: string;
+  status: WorkflowExecution["status"];
+  output: unknown;
+  error: string | null;
+  startTime: number;
+}) {
+  const { executionId: execId, status, output, error, startTime } = data;
+  const duration = Date.now() - startTime;
+
+  // Skip updates if the execution has already been cancelled
+  const existingExecution = await db.query.workflowExecutions.findFirst({
+    where: eq(workflowExecutions.id, execId),
+    columns: {
+      status: true,
+    },
+  });
+
+  if (!existingExecution || existingExecution.status === "cancelled") {
+    return NextResponse.json({ success: true });
+  }
+
+  await db
+    .update(workflowExecutions)
+    .set({
+      status,
+      output,
+      error,
+      completedAt: new Date(),
+      duration: duration.toString(),
+    })
+    .where(eq(workflowExecutions.id, execId));
+
+  return NextResponse.json({ success: true });
+}
+
+async function completeNodeLog(data: {
+  logId?: string;
+  startTime?: number;
+  status?: "success" | "error";
+  output?: unknown;
+  error?: string;
+}) {
+  const { logId, startTime, status, output, error } = data;
+
+  if (!logId) {
+    return NextResponse.json({ success: true });
+  }
+
+  const duration = startTime ? Date.now() - startTime : 0;
+
+  await db
+    .update(workflowExecutionLogs)
+    .set({
+      status,
+      output,
+      error,
+      completedAt: new Date(),
+      duration: duration.toString(),
+    })
+    .where(eq(workflowExecutionLogs.id, logId));
+
+  return NextResponse.json({ success: true });
+}
+
+async function handleCompleteAction(data: {
+  executionId?: string;
+  logId?: string;
+  status?: WorkflowExecution["status"];
+  output?: unknown;
+  error?: string | null;
+  startTime?: number;
+}) {
+  if (data.executionId && !data.logId) {
+    if (!isExecutionStatus(data.status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
+    return await completeExecution({
+      executionId: data.executionId,
+      status: data.status,
+      output: data.output,
+      error: data.error ?? null,
+      startTime: data.startTime ?? Date.now(),
+    });
+  }
+
+  return await completeNodeLog({
+    logId: data.logId,
+    startTime: data.startTime,
+    status: data.status as "success" | "error" | undefined,
+    output: data.output,
+    error: data.error ?? undefined,
+  });
+}
 
 export async function POST(request: Request) {
   try {
@@ -9,82 +150,11 @@ export async function POST(request: Request) {
     const { action, data } = body;
 
     if (action === "start") {
-      // Start node execution log
-      const { executionId, nodeId, nodeName, nodeType, input } = data;
-
-      const [log] = await db
-        .insert(workflowExecutionLogs)
-        .values({
-          executionId,
-          nodeId,
-          nodeName,
-          nodeType,
-          status: "running",
-          input,
-          startedAt: new Date(),
-        })
-        .returning();
-
-      return NextResponse.json({
-        logId: log.id,
-        startTime: Date.now(),
-      });
+      return startNodeLog(data);
     }
 
     if (action === "complete") {
-      // Check if this is a workflow execution completion or node execution completion
-      if (data.executionId && !data.logId) {
-        // This is the overall workflow execution completion
-        const {
-          executionId: execId,
-          status: execStatus,
-          output: execOutput,
-          error: execError,
-          startTime: execStartTime,
-        } = data;
-        const duration = Date.now() - execStartTime;
-
-        await db
-          .update(workflowExecutions)
-          .set({
-            status: execStatus,
-            output: execOutput,
-            error: execError,
-            completedAt: new Date(),
-            duration: duration.toString(),
-          })
-          .where(eq(workflowExecutions.id, execId));
-
-        return NextResponse.json({ success: true });
-      }
-
-      // Complete node execution log
-      const {
-        logId,
-        startTime: nodeStartTime,
-        status: nodeStatus,
-        output: nodeOutput,
-        error: nodeError,
-      } = data;
-
-      if (!logId) {
-        return NextResponse.json({ success: true });
-      }
-
-      const duration = Date.now() - nodeStartTime;
-
-      await db
-        .update(workflowExecutionLogs)
-        .set({
-          status: nodeStatus,
-          output: nodeOutput,
-          error: nodeError,
-          completedAt: new Date(),
-          duration: duration.toString(),
-        })
-        .where(eq(workflowExecutionLogs.id, logId));
-
-      return NextResponse.json({ success: true });
+      return handleCompleteAction(data);
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

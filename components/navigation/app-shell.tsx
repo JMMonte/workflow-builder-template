@@ -1,16 +1,17 @@
 "use client";
 
 import {
+  ChevronLeft,
+  ChevronRight,
   Menu,
-  PanelLeftOpen,
-  PanelRightOpen,
   Plug,
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { TeamSelector } from "@/components/navigation/team-selector";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { WorkflowIcon } from "@/components/ui/workflow-icon";
 import { UserMenu } from "@/components/workflows/user-menu";
+import { TEAM_STORAGE_KEY } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +48,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: Plug,
   },
   {
-    label: "Team",
+    label: "Members",
     description: "Manage members and permissions.",
     href: "/team",
     icon: UsersRound,
@@ -204,28 +206,17 @@ function DesktopSidebar({
   return (
     <aside
       className={cn(
-        "hidden h-screen border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex",
+        "relative hidden h-screen border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex",
         collapsed ? "w-[76px]" : "w-64",
         isWorkflowDetail && "pointer-events-auto"
       )}
       data-sidebar="desktop"
     >
       <div className="flex w-full flex-col">
-        <div className="flex items-center gap-2 px-3 py-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <WorkflowIcon className="size-5" />
-          </div>
-          {collapsed ? null : (
-            <div className="flex flex-col">
-              <span className="font-semibold text-sm leading-tight">
-                Workflow Builder
-              </span>
-              <span className="text-muted-foreground text-xs leading-tight">
-                Team workspace
-              </span>
-            </div>
-          )}
+        <div className="px-2 py-3">
+          <TeamSelector collapsed={collapsed} />
         </div>
+        <Separator />
         <div className="px-2 py-2">
           <NavLinks activePath={pathname} collapsed={collapsed} />
         </div>
@@ -237,14 +228,14 @@ function DesktopSidebar({
         />
       </div>
       <button
-        className="group absolute top-16 right-0 z-30 hidden h-10 w-4 translate-x-1/2 items-center justify-center rounded-r-md border border-l-0 bg-background/90 text-sidebar-foreground shadow-sm ring-1 ring-border transition hover:bg-muted md:flex"
+        className="group absolute top-16 right-0 z-30 hidden h-10 w-4 translate-x-1/2 items-center justify-center rounded-md border bg-background/90 text-sidebar-foreground shadow-sm ring-1 ring-border transition hover:bg-muted md:flex"
         onClick={onToggleCollapse}
         type="button"
       >
         {collapsed ? (
-          <PanelRightOpen className="size-3" />
+          <ChevronRight className="size-3" />
         ) : (
-          <PanelLeftOpen className="size-3" />
+          <ChevronLeft className="size-3" />
         )}
         <span className="sr-only">Toggle sidebar</span>
       </button>
@@ -270,20 +261,8 @@ function MobileNavigation({
     <Sheet onOpenChange={onOpenChange} open={mobileOpen}>
       <SheetContent className="w-80 border-r p-0" side="left">
         <div className="flex h-full flex-col">
-          <div className="border-b px-4 py-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <WorkflowIcon className="size-5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-semibold text-sm leading-tight">
-                  Workflow Builder
-                </span>
-                <span className="text-muted-foreground text-xs leading-tight">
-                  Team workspace
-                </span>
-              </div>
-            </div>
+          <div className="border-b px-2 py-3">
+            <TeamSelector />
           </div>
           <div className="flex-1 overflow-y-auto px-2 py-3">
             <NavLinks
@@ -304,13 +283,51 @@ function MobileNavigation({
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const lastTeamId = useRef<string | null>(null);
   const { data: session } = useSession();
   const isWorkflowDetail = pathname.startsWith("/workflows/");
   const userName = session?.user?.name;
   const userEmail = session?.user?.email;
   const hasUserDetails = Boolean(userName || userEmail);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      lastTeamId.current = window.localStorage.getItem(TEAM_STORAGE_KEY);
+    }
+
+    const handleTeamChange = (event: Event) => {
+      let nextTeamId: string | null = null;
+
+      if (event instanceof CustomEvent) {
+        nextTeamId =
+          (event as CustomEvent<{ teamId?: string | null }>).detail?.teamId ??
+          null;
+      } else if (
+        event instanceof StorageEvent &&
+        event.key === TEAM_STORAGE_KEY
+      ) {
+        nextTeamId = event.newValue;
+      }
+
+      if (nextTeamId === lastTeamId.current) {
+        return;
+      }
+
+      lastTeamId.current = nextTeamId;
+      router.refresh();
+    };
+
+    window.addEventListener("active-team-change", handleTeamChange);
+    window.addEventListener("storage", handleTeamChange);
+
+    return () => {
+      window.removeEventListener("active-team-change", handleTeamChange);
+      window.removeEventListener("storage", handleTeamChange);
+    };
+  }, [router]);
 
   return (
     <TooltipProvider delayDuration={150}>

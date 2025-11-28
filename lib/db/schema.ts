@@ -103,6 +103,8 @@ export const workflows = pgTable("workflows", {
     .$defaultFn(() => generateId()),
   name: text("name").notNull(),
   description: text("description"),
+  icon: text("icon").notNull().default("workflow"),
+  iconColor: text("icon_color").notNull().default("#2563eb"),
   teamId: text("team_id")
     .notNull()
     .references(() => teams.id),

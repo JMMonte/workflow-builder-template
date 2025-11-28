@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import { workflows } from "@/lib/db/schema";
 import { requireTeamContext } from "@/lib/team-context";
 import { generateId } from "@/lib/utils/id";
+import {
+  DEFAULT_WORKFLOW_ICON,
+  DEFAULT_WORKFLOW_ICON_COLOR,
+} from "@/lib/workflow-defaults";
 
 // Helper function to create a default trigger node
 function createDefaultTriggerNode() {
@@ -57,6 +61,8 @@ export async function POST(request: Request) {
 
     // Generate workflow ID first
     const workflowId = generateId();
+    const icon = body.icon || DEFAULT_WORKFLOW_ICON;
+    const iconColor = body.iconColor || DEFAULT_WORKFLOW_ICON_COLOR;
 
     const [newWorkflow] = await db
       .insert(workflows)
@@ -64,6 +70,8 @@ export async function POST(request: Request) {
         id: workflowId,
         name: workflowName,
         description: body.description,
+        icon,
+        iconColor,
         nodes,
         edges: body.edges,
         userId: teamContext.session.user.id,

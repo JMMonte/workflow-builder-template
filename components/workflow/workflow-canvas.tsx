@@ -29,13 +29,11 @@ import {
   edgesAtom,
   hasUnsavedChangesAtom,
   isGeneratingAtom,
-  isPanelAnimatingAtom,
   isTransitioningFromHomepageAtom,
   nodesAtom,
   onEdgesChangeAtom,
   onNodesChangeAtom,
   propertiesPanelActiveTabAtom,
-  rightPanelWidthAtom,
   selectedEdgeAtom,
   selectedNodeAtom,
   showMinimapAtom,
@@ -77,15 +75,12 @@ const edgeTypes = {
   temporary: Edge.Temporary,
 };
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: React Flow canvas requires complex setup
 export function WorkflowCanvas() {
   const [nodes, setNodes] = useAtom(nodesAtom);
   const [edges, setEdges] = useAtom(edgesAtom);
   const [isGenerating] = useAtom(isGeneratingAtom);
   const currentWorkflowId = useAtomValue(currentWorkflowIdAtom);
   const [showMinimap] = useAtom(showMinimapAtom);
-  const rightPanelWidth = useAtomValue(rightPanelWidthAtom);
-  const isPanelAnimating = useAtomValue(isPanelAnimatingAtom);
   const [isTransitioningFromHomepage, setIsTransitioningFromHomepage] = useAtom(
     isTransitioningFromHomepageAtom
   );
@@ -450,13 +445,10 @@ export function WorkflowCanvas() {
 
   return (
     <div
-      className="relative h-full bg-background"
+      className="relative h-full w-full bg-background"
       style={{
         opacity: isCanvasReady ? 1 : 0,
-        width: rightPanelWidth ? `calc(100% - ${rightPanelWidth})` : "100%",
-        transition: isPanelAnimating
-          ? "width 300ms ease-out, opacity 300ms"
-          : "opacity 300ms",
+        transition: "opacity 300ms",
       }}
     >
       {/* Toolbar */}

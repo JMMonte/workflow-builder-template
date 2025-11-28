@@ -4,6 +4,10 @@ import { db } from "@/lib/db";
 import { workflows } from "@/lib/db/schema";
 import { requireTeamContext } from "@/lib/team-context";
 import { generateId } from "@/lib/utils/id";
+import {
+  DEFAULT_WORKFLOW_ICON,
+  DEFAULT_WORKFLOW_ICON_COLOR,
+} from "@/lib/workflow-defaults";
 
 const CURRENT_WORKFLOW_NAME = "~~__CURRENT__~~";
 
@@ -32,6 +36,8 @@ export async function GET(request: Request) {
       return NextResponse.json({
         nodes: [],
         edges: [],
+        icon: DEFAULT_WORKFLOW_ICON,
+        iconColor: DEFAULT_WORKFLOW_ICON_COLOR,
       });
     }
 
@@ -39,6 +45,8 @@ export async function GET(request: Request) {
       id: currentWorkflow.id,
       nodes: currentWorkflow.nodes,
       edges: currentWorkflow.edges,
+      icon: currentWorkflow.icon,
+      iconColor: currentWorkflow.iconColor,
     });
   } catch (error) {
     console.error("Failed to get current workflow:", error);
@@ -100,6 +108,8 @@ export async function POST(request: Request) {
         id: updatedWorkflow.id,
         nodes: updatedWorkflow.nodes,
         edges: updatedWorkflow.edges,
+        icon: updatedWorkflow.icon,
+        iconColor: updatedWorkflow.iconColor,
       });
     }
 
@@ -112,6 +122,8 @@ export async function POST(request: Request) {
         id: workflowId,
         name: CURRENT_WORKFLOW_NAME,
         description: "Auto-saved current workflow",
+        icon: DEFAULT_WORKFLOW_ICON,
+        iconColor: DEFAULT_WORKFLOW_ICON_COLOR,
         nodes,
         edges,
         userId: teamContext.session.user.id,
@@ -123,6 +135,8 @@ export async function POST(request: Request) {
       id: savedWorkflow.id,
       nodes: savedWorkflow.nodes,
       edges: savedWorkflow.edges,
+      icon: savedWorkflow.icon,
+      iconColor: savedWorkflow.iconColor,
     });
   } catch (error) {
     console.error("Failed to save current workflow:", error);

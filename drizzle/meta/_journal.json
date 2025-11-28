@@ -22,6 +22,13 @@
       "when": 1764283285565,
       "tag": "0002_worried_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1764293664633,
+      "tag": "0003_red_natasha_romanoff",
+      "breakpoints": true
     }
   ]
 }

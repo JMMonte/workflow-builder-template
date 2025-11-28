@@ -10,6 +10,7 @@ import { api } from "@/lib/api-client";
 import {
   currentWorkflowIdAtom,
   currentWorkflowNameAtom,
+  currentWorkflowDescriptionAtom,
   edgesAtom,
   isGeneratingAtom,
   nodesAtom,
@@ -33,6 +34,9 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
   const [_nodes, setNodes] = useAtom(nodesAtom);
   const [_currentWorkflowId, setCurrentWorkflowId] = useAtom(currentWorkflowIdAtom);
   const [_currentWorkflowName, setCurrentWorkflowName] = useAtom(currentWorkflowNameAtom);
+  const [_currentWorkflowDescription, setCurrentWorkflowDescription] = useAtom(
+    currentWorkflowDescriptionAtom
+  );
   const [_selectedNodeId, setSelectedNodeId] = useAtom(selectedNodeAtom);
 
   // Filter out placeholder "add" nodes to get real nodes
@@ -79,7 +83,12 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       try {
         // Send existing workflow data for context when modifying
         const existingWorkflow = hasNodes
-          ? { nodes: realNodes, edges, name: _currentWorkflowName }
+          ? {
+              nodes: realNodes,
+              edges,
+              name: _currentWorkflowName,
+              description: _currentWorkflowDescription,
+            }
           : undefined;
         
         console.log("[AI Prompt] Generating workflow");
@@ -135,6 +144,9 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
             if (partialData.name) {
               setCurrentWorkflowName(partialData.name);
             }
+            if (partialData.description !== undefined) {
+              setCurrentWorkflowDescription(partialData.description ?? "");
+            }
           },
           existingWorkflow
         );
@@ -148,6 +160,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
           ...edge,
           type: "animated",
         }));
+        setCurrentWorkflowDescription(workflowData.description || "");
 
         // Validate: check for blank/incomplete nodes
         console.log("[AI Prompt] Validating nodes:", workflowData.nodes);
@@ -266,9 +279,12 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       edges,
       setIsGenerating,
       setCurrentWorkflowId,
+      _currentWorkflowName,
+      _currentWorkflowDescription,
       setNodes,
       setEdges,
       setCurrentWorkflowName,
+      setCurrentWorkflowDescription,
       setSelectedNodeId,
       onWorkflowCreated,
     ]
@@ -342,4 +358,3 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
     </>
   );
 }
-

@@ -25,10 +25,26 @@ import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  getWorkflowIconColors,
+  WORKFLOW_ICON_OPTIONS,
+  WorkflowIconDisplay,
+} from "@/components/workflow/workflow-icon-options";
 import { api } from "@/lib/api-client";
 import { generateWorkflowCode } from "@/lib/workflow-codegen";
 import {
   clearNodeStatusesAtom,
+  currentWorkflowDescriptionAtom,
+  currentWorkflowIconAtom,
+  currentWorkflowIconColorAtom,
   currentWorkflowIdAtom,
   currentWorkflowNameAtom,
   deleteEdgeAtom,
@@ -51,7 +67,6 @@ import { IntegrationSelector } from "../ui/integration-selector";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ActionConfig } from "./config/action-config";
 import { ActionGrid } from "./config/action-grid";
-
 import { TriggerConfig } from "./config/trigger-config";
 import { generateNodeCode } from "./utils/code-generators";
 import { WorkflowRuns } from "./workflow-runs";
@@ -144,6 +159,15 @@ export const PanelInner = () => {
   const [currentWorkflowId] = useAtom(currentWorkflowIdAtom);
   const [currentWorkflowName, setCurrentWorkflowName] = useAtom(
     currentWorkflowNameAtom
+  );
+  const [currentWorkflowDescription, setCurrentWorkflowDescription] = useAtom(
+    currentWorkflowDescriptionAtom
+  );
+  const [currentWorkflowIcon, setCurrentWorkflowIcon] = useAtom(
+    currentWorkflowIconAtom
+  );
+  const [currentWorkflowIconColor, setCurrentWorkflowIconColor] = useAtom(
+    currentWorkflowIconColorAtom
   );
   const updateNodeData = useSetAtom(updateNodeDataAtom);
   const deleteNode = useSetAtom(deleteNodeAtom);
@@ -276,6 +300,49 @@ export const PanelInner = () => {
     }
   };
 
+  const handleUpdateWorkspaceDescription = async (newDescription: string) => {
+    setCurrentWorkflowDescription(newDescription);
+
+    if (currentWorkflowId) {
+      try {
+        await api.workflow.update(currentWorkflowId, {
+          description: newDescription,
+          nodes,
+          edges,
+        });
+      } catch (error) {
+        console.error("Failed to update workflow description:", error);
+        toast.error("Failed to update workspace description");
+      }
+    }
+  };
+
+  const handleUpdateWorkspaceIcon = async (icon: string) => {
+    setCurrentWorkflowIcon(icon);
+
+    if (currentWorkflowId) {
+      try {
+        await api.workflow.update(currentWorkflowId, { icon });
+      } catch (error) {
+        console.error("Failed to update workflow icon:", error);
+        toast.error("Failed to update workflow icon");
+      }
+    }
+  };
+
+  const handleUpdateWorkspaceIconColor = async (iconColor: string) => {
+    setCurrentWorkflowIconColor(iconColor);
+
+    if (currentWorkflowId) {
+      try {
+        await api.workflow.update(currentWorkflowId, { iconColor });
+      } catch (error) {
+        console.error("Failed to update workflow icon color:", error);
+        toast.error("Failed to update icon color");
+      }
+    }
+  };
+
   const handleRefreshRuns = async () => {
     setIsRefreshing(true);
     try {
@@ -366,6 +433,8 @@ export const PanelInner = () => {
 
   // If no node is selected, show workspace properties and runs
   if (!selectedNode) {
+    const iconPreviewColors = getWorkflowIconColors(currentWorkflowIconColor);
+
     return (
       <>
         <Tabs
@@ -408,6 +477,84 @@ export const PanelInner = () => {
                   onChange={(e) => handleUpdateWorkspaceName(e.target.value)}
                   value={currentWorkflowName}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label className="ml-1" htmlFor="workflow-description">
+                  Description
+                </Label>
+                <Textarea
+                  id="workflow-description"
+                  onChange={(e) =>
+                    handleUpdateWorkspaceDescription(e.target.value)
+                  }
+                  placeholder="Add a short description for this workflow"
+                  value={currentWorkflowDescription}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="ml-1" htmlFor="workflow-icon">
+                  Icon
+                </Label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Select
+                    onValueChange={handleUpdateWorkspaceIcon}
+                    value={currentWorkflowIcon}
+                  >
+                    <SelectTrigger className="w-[220px]" id="workflow-icon">
+                      <SelectValue placeholder="Choose an icon" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WORKFLOW_ICON_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <WorkflowIconDisplay
+                              className="size-4"
+                              color={currentWorkflowIconColor}
+                              value={option.value}
+                            />
+                            <span>{option.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-md border"
+                    style={{
+                      color: iconPreviewColors.color,
+                      backgroundColor: iconPreviewColors.backgroundColor,
+                    }}
+                    title="Icon preview"
+                  >
+                    <WorkflowIconDisplay
+                      className="size-5"
+                      color={currentWorkflowIconColor}
+                      value={currentWorkflowIcon}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="ml-1" htmlFor="workflow-icon-color">
+                  Icon Color
+                </Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    className="h-10 w-20 p-1"
+                    id="workflow-icon-color"
+                    onChange={(e) =>
+                      handleUpdateWorkspaceIconColor(e.target.value)
+                    }
+                    type="color"
+                    value={currentWorkflowIconColor}
+                  />
+                  <Input
+                    onChange={(e) =>
+                      handleUpdateWorkspaceIconColor(e.target.value)
+                    }
+                    value={currentWorkflowIconColor}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label className="ml-1" htmlFor="workflow-id">

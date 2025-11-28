@@ -12,6 +12,7 @@ import {
   Redo2,
   Save,
   Settings2,
+  Square,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -49,6 +50,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { WorkflowIcon } from "@/components/ui/workflow-icon";
 import { api } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import {
@@ -79,7 +81,6 @@ import {
   type WorkflowNode,
 } from "@/lib/workflow-store";
 import { Panel } from "../ai-elements/panel";
-import { WorkflowIcon } from "../ui/workflow-icon";
 import { PanelInner } from "./node-config-panel";
 
 type WorkflowToolbarProps = {
@@ -110,6 +111,8 @@ type ExecuteTestWorkflowParams = {
   pollingIntervalRef: React.MutableRefObject<NodeJS.Timeout | null>;
   setIsExecuting: (value: boolean) => void;
   setSelectedExecutionId: (value: string | null) => void;
+  onComplete?: () => void;
+  onStarted?: (executionId: string) => void;
 };
 
 async function executeTestWorkflow({
@@ -119,6 +122,8 @@ async function executeTestWorkflow({
   pollingIntervalRef,
   setIsExecuting,
   setSelectedExecutionId,
+  onComplete,
+  onStarted,
 }: ExecuteTestWorkflowParams) {
   // Set all nodes to idle first
   updateNodesStatus(nodes, updateNodeData, "idle");
@@ -148,6 +153,7 @@ async function executeTestWorkflow({
 
     // Select the new execution
     setSelectedExecutionId(result.executionId);
+    onStarted?.(result.executionId);
 
     // Poll for execution status updates
     const pollInterval = setInterval(async () => {
@@ -177,6 +183,7 @@ async function executeTestWorkflow({
             pollingIntervalRef.current = null;
           }
 
+          onComplete?.();
           setIsExecuting(false);
 
           // Don't reset node statuses - let them show the final state
@@ -188,6 +195,7 @@ async function executeTestWorkflow({
     }, 500); // Poll every 500ms
 
     pollingIntervalRef.current = pollInterval;
+    return result.executionId as string;
   } catch (error) {
     console.error("Failed to execute workflow:", error);
     toast.error(
@@ -195,6 +203,7 @@ async function executeTestWorkflow({
     );
     updateNodesStatus(nodes, updateNodeData, "error");
     setIsExecuting(false);
+    return;
   }
 }
 
@@ -214,6 +223,7 @@ type WorkflowHandlerParams = {
   setNodes: (nodes: WorkflowNode[]) => void;
   setEdges: (edges: WorkflowEdge[]) => void;
   setSelectedNodeId: (id: string | null) => void;
+  selectedExecutionId: string | null;
   setSelectedExecutionId: (id: string | null) => void;
 };
 
@@ -229,10 +239,13 @@ function useWorkflowHandlers({
   setNodes,
   setEdges,
   setSelectedNodeId,
+  selectedExecutionId,
   setSelectedExecutionId,
 }: WorkflowHandlerParams) {
   const [showUnsavedRunDialog, setShowUnsavedRunDialog] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const runningExecutionIdRef = useRef<string | null>(null);
 
   // Cleanup polling interval on unmount
   useEffect(
@@ -275,6 +288,7 @@ function useWorkflowHandlers({
     setEdges(edges.map((edge) => ({ ...edge, selected: false })));
     setSelectedNodeId(null);
 
+    runningExecutionIdRef.current = null;
     setIsExecuting(true);
     await executeTestWorkflow({
       workflowId: currentWorkflowId,
@@ -283,6 +297,12 @@ function useWorkflowHandlers({
       pollingIntervalRef,
       setIsExecuting,
       setSelectedExecutionId,
+      onStarted: (executionId) => {
+        runningExecutionIdRef.current = executionId;
+      },
+      onComplete: () => {
+        runningExecutionIdRef.current = null;
+      },
     });
     // Don't set executing to false here - let polling handle it
   };
@@ -291,11 +311,63 @@ function useWorkflowHandlers({
     await executeWorkflow();
   };
 
+  const handleStop = async () => {
+    const executionIdToStop =
+      runningExecutionIdRef.current || selectedExecutionId;
+
+    if (!executionIdToStop) {
+      toast.error("Select a running execution to stop");
+      return;
+    }
+
+    setIsStopping(true);
+
+    try {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+
+      await api.workflow.cancelExecution(executionIdToStop);
+
+      // Reset node statuses immediately, then refresh from server
+      updateNodesStatus(nodes, updateNodeData, "idle");
+
+      const statusData =
+        await api.workflow.getExecutionStatus(executionIdToStop);
+
+      for (const nodeStatus of statusData.nodeStatuses) {
+        updateNodeData({
+          id: nodeStatus.nodeId,
+          data: {
+            status: nodeStatus.status as
+              | "idle"
+              | "running"
+              | "success"
+              | "error",
+          },
+        });
+      }
+
+      setIsExecuting(false);
+      runningExecutionIdRef.current = null;
+    } catch (error) {
+      console.error("Failed to stop execution:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to stop execution"
+      );
+    } finally {
+      setIsStopping(false);
+    }
+  };
+
   return {
     showUnsavedRunDialog,
     setShowUnsavedRunDialog,
     handleSave,
     handleExecute,
+    handleStop,
+    isStopping,
   };
 }
 
@@ -310,6 +382,9 @@ function useWorkflowState() {
   const [currentWorkflowId] = useAtom(currentWorkflowIdAtom);
   const [workflowName, setCurrentWorkflowName] = useAtom(
     currentWorkflowNameAtom
+  );
+  const [selectedExecutionId, setSelectedExecutionId] = useAtom(
+    selectedExecutionIdAtom
   );
   const router = useRouter();
   const [showClearDialog, setShowClearDialog] = useAtom(showClearDialogAtom);
@@ -339,7 +414,6 @@ function useWorkflowState() {
   );
   const setActiveTab = useSetAtom(propertiesPanelActiveTabAtom);
   const setSelectedNodeId = useSetAtom(selectedNodeAtom);
-  const setSelectedExecutionId = useSetAtom(selectedExecutionIdAtom);
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [showCodeDialog, setShowCodeDialog] = useState(false);
@@ -417,6 +491,7 @@ function useWorkflowState() {
     setNodes,
     setEdges,
     setSelectedNodeId,
+    selectedExecutionId,
     setSelectedExecutionId,
   };
 }
@@ -445,6 +520,7 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setNodes,
     setEdges,
     setSelectedNodeId,
+    selectedExecutionId,
     setSelectedExecutionId,
   } = state;
 
@@ -453,6 +529,8 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setShowUnsavedRunDialog,
     handleSave,
     handleExecute,
+    handleStop,
+    isStopping,
   } = useWorkflowHandlers({
     currentWorkflowId,
     nodes,
@@ -465,6 +543,7 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setNodes,
     setEdges,
     setSelectedNodeId,
+    selectedExecutionId,
     setSelectedExecutionId,
   });
 
@@ -591,6 +670,8 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setShowUnsavedRunDialog,
     handleSave,
     handleExecute,
+    handleStop,
+    isStopping,
     handleSaveAndRun,
     handleRunWithoutSaving,
     handleClearWorkflow,
@@ -927,6 +1008,25 @@ function RunButtonGroup({
   state: ReturnType<typeof useWorkflowState>;
   actions: ReturnType<typeof useWorkflowActions>;
 }) {
+  if (state.isExecuting) {
+    return (
+      <Button
+        className="border hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5 disabled:[&>svg]:text-muted-foreground"
+        disabled={actions.isStopping}
+        onClick={() => actions.handleStop()}
+        size="icon"
+        title="Stop Workflow"
+        variant="destructive"
+      >
+        {actions.isStopping ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Square className="size-4" />
+        )}
+      </Button>
+    );
+  }
+
   return (
     <Button
       className="border hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5 disabled:[&>svg]:text-muted-foreground"

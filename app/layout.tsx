@@ -14,9 +14,9 @@ import { mono, sans } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "AI Workflow Builder - Visual Workflow Automation",
+  title: "Zipline | AI Workflow Automations for Teams",
   description:
-    "Build powerful AI-driven workflow automations with a visual, node-based editor. Built with Next.js and React Flow.",
+    "Zipline is an app for managing AI workflow automations for teams with a collaborative visual builder.",
 };
 
 export const viewport: Viewport = {

@@ -13,11 +13,20 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { WorkflowIcon } from "@/components/ui/workflow-icon";
+import {
+  getWorkflowIconColors,
+  WorkflowIconDisplay,
+} from "@/components/workflow/workflow-icon-options";
 import { api, type SavedWorkflow } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_WORKFLOW_ICON,
+  DEFAULT_WORKFLOW_ICON_COLOR,
+} from "@/lib/workflow-defaults";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -72,6 +81,8 @@ export default function WorkflowsPage() {
       const newWorkflow = await api.workflow.create({
         name: "Untitled Workflow",
         description: "",
+        icon: DEFAULT_WORKFLOW_ICON,
+        iconColor: DEFAULT_WORKFLOW_ICON_COLOR,
         nodes: [],
         edges: [],
       });
@@ -87,9 +98,30 @@ export default function WorkflowsPage() {
   let content: ReactNode;
 
   if (loading) {
+    const skeletonCount = filteredWorkflows.length || 6;
+    const skeletonKeys = Array.from(
+      { length: skeletonCount },
+      (_, index) => `workflow-${index}`
+    );
+
     content = (
-      <div className="flex justify-center py-16">
-        <Spinner className="size-8" />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {skeletonKeys.map((key) => (
+          <Card className="flex flex-col gap-3 p-4" key={key}>
+            <div className="flex items-start gap-3">
+              <Skeleton className="h-10 w-10 rounded-md" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+            <Skeleton className="h-16 w-full" />
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-8 w-20" />
+            </div>
+          </Card>
+        ))}
       </div>
     );
   } else if (filteredWorkflows.length === 0) {
@@ -119,30 +151,44 @@ export default function WorkflowsPage() {
   } else {
     content = (
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {filteredWorkflows.map((workflow) => (
-          <Card className="flex flex-col gap-3 p-4" key={workflow.id}>
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <WorkflowIcon className="size-5" />
+        {filteredWorkflows.map((workflow) => {
+          const iconColors = getWorkflowIconColors(workflow.iconColor);
+
+          return (
+            <Card className="flex flex-col gap-3 p-4" key={workflow.id}>
+              <div className="flex items-start gap-3">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-md"
+                  style={{
+                    color: iconColors.color,
+                    backgroundColor: iconColors.backgroundColor,
+                  }}
+                >
+                  <WorkflowIconDisplay
+                    className="size-5"
+                    color={iconColors.color}
+                    value={workflow.icon}
+                  />
+                </div>
+                <div>
+                  <p className="font-semibold">{workflow.name}</p>
+                  <p className="text-muted-foreground text-xs">
+                    Updated {formatDate(workflow.updatedAt)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold">{workflow.name}</p>
-                <p className="text-muted-foreground text-xs">
-                  Updated {formatDate(workflow.updatedAt)}
-                </p>
+              <p className="line-clamp-3 text-muted-foreground text-sm">
+                {workflow.description || "No description yet."}
+              </p>
+              <div className="flex items-center justify-between text-muted-foreground text-xs">
+                <span>Created {formatDate(workflow.createdAt)}</span>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/workflows/${workflow.id}`}>Open</Link>
+                </Button>
               </div>
-            </div>
-            <p className="line-clamp-3 text-muted-foreground text-sm">
-              {workflow.description || "No description yet."}
-            </p>
-            <div className="flex items-center justify-between text-muted-foreground text-xs">
-              <span>Created {formatDate(workflow.createdAt)}</span>
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/workflows/${workflow.id}`}>Open</Link>
-              </Button>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     );
   }

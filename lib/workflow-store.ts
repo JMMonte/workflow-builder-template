@@ -2,6 +2,10 @@ import type { Edge, EdgeChange, Node, NodeChange } from "@xyflow/react";
 import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import { atom } from "jotai";
 import { api } from "./api-client";
+import {
+  DEFAULT_WORKFLOW_ICON,
+  DEFAULT_WORKFLOW_ICON_COLOR,
+} from "./workflow-defaults";
 
 export type WorkflowNodeType = "trigger" | "action" | "add";
 
@@ -28,6 +32,11 @@ export const isLoadingAtom = atom(false);
 export const isGeneratingAtom = atom(false);
 export const currentWorkflowIdAtom = atom<string | null>(null);
 export const currentWorkflowNameAtom = atom<string>("");
+export const currentWorkflowDescriptionAtom = atom<string>("");
+export const currentWorkflowIconAtom = atom<string>(DEFAULT_WORKFLOW_ICON);
+export const currentWorkflowIconColorAtom = atom<string>(
+  DEFAULT_WORKFLOW_ICON_COLOR
+);
 
 // UI state atoms
 export const propertiesPanelActiveTabAtom = atom<string>("properties");
@@ -427,6 +436,21 @@ export const loadWorkflowAtom = atom(null, async (_get, set) => {
     const workflow = await api.workflow.getCurrent();
     set(nodesAtom, workflow.nodes);
     set(edgesAtom, workflow.edges);
+    if (workflow.description !== undefined) {
+      set(currentWorkflowDescriptionAtom, workflow.description || "");
+    }
+    if (workflow.name !== undefined) {
+      set(currentWorkflowNameAtom, workflow.name);
+    }
+    if (workflow.icon !== undefined) {
+      set(currentWorkflowIconAtom, workflow.icon || DEFAULT_WORKFLOW_ICON);
+    }
+    if (workflow.iconColor !== undefined) {
+      set(
+        currentWorkflowIconColorAtom,
+        workflow.iconColor || DEFAULT_WORKFLOW_ICON_COLOR
+      );
+    }
     if (workflow.id) {
       set(currentWorkflowIdAtom, workflow.id);
     }
@@ -447,11 +471,15 @@ export const saveWorkflowAsAtom = atom(
   ) => {
     const nodes = get(nodesAtom);
     const edges = get(edgesAtom);
+    const icon = get(currentWorkflowIconAtom);
+    const iconColor = get(currentWorkflowIconColorAtom);
 
     try {
       const workflow = await api.workflow.create({
         name,
         description,
+        icon,
+        iconColor,
         nodes,
         edges,
       });

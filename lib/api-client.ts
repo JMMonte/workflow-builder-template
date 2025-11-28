@@ -19,6 +19,8 @@ export type WorkflowData = {
   id?: string;
   name?: string;
   description?: string;
+  icon?: string;
+  iconColor?: string;
   teamId?: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
@@ -30,6 +32,8 @@ export type SavedWorkflow = WorkflowData & {
   teamId: string;
   createdAt: string;
   updatedAt: string;
+  icon: string;
+  iconColor: string;
 };
 
 // API error class
@@ -460,6 +464,9 @@ export const teamApi = {
   setActiveTeam: (teamId: string) => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(TEAM_STORAGE_KEY, teamId);
+      window.dispatchEvent(
+        new CustomEvent("active-team-change", { detail: { teamId } })
+      );
     }
   },
 };
@@ -622,6 +629,15 @@ export const workflowApi = {
         status: "pending" | "running" | "success" | "error";
       }>;
     }>(`/api/workflows/executions/${executionId}/status`),
+
+  // Cancel execution
+  cancelExecution: (executionId: string) =>
+    apiCall<{ status: string; cancelledAt?: string }>(
+      `/api/workflows/executions/${executionId}/cancel`,
+      {
+        method: "POST",
+      }
+    ),
 
   // Download workflow
   download: (id: string) =>

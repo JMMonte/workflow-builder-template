@@ -11,6 +11,13 @@ import { NodeConfigPanel } from "@/components/workflow/node-config-panel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { api } from "@/lib/api-client";
 import {
+  DEFAULT_WORKFLOW_ICON,
+  DEFAULT_WORKFLOW_ICON_COLOR,
+} from "@/lib/workflow-defaults";
+import {
+  currentWorkflowDescriptionAtom,
+  currentWorkflowIconAtom,
+  currentWorkflowIconColorAtom,
   currentWorkflowIdAtom,
   currentWorkflowNameAtom,
   edgesAtom,
@@ -52,6 +59,11 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
   const setEdges = useSetAtom(edgesAtom);
   const setCurrentWorkflowId = useSetAtom(currentWorkflowIdAtom);
   const setCurrentWorkflowName = useSetAtom(currentWorkflowNameAtom);
+  const setCurrentWorkflowDescription = useSetAtom(
+    currentWorkflowDescriptionAtom
+  );
+  const setCurrentWorkflowIcon = useSetAtom(currentWorkflowIconAtom);
+  const setCurrentWorkflowIconColor = useSetAtom(currentWorkflowIconColorAtom);
   const updateNodeData = useSetAtom(updateNodeDataAtom);
   const setSelectedNodeId = useSetAtom(selectedNodeAtom);
   const setHasUnsavedChanges = useSetAtom(hasUnsavedChangesAtom);
@@ -229,6 +241,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
       setIsGenerating(true);
       setCurrentWorkflowId(workflowId);
       setCurrentWorkflowName("AI Generated Workflow");
+      setCurrentWorkflowDescription("");
 
       try {
         const workflowData = await api.ai.generate(prompt);
@@ -236,6 +249,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
         setNodes(workflowData.nodes || []);
         setEdges(workflowData.edges || []);
         setCurrentWorkflowName(workflowData.name || "AI Generated Workflow");
+        setCurrentWorkflowDescription(workflowData.description || "");
 
         const selectedNode = workflowData.nodes?.find(
           (n: { selected?: boolean }) => n.selected
@@ -262,6 +276,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
       setIsGenerating,
       setCurrentWorkflowId,
       setCurrentWorkflowName,
+      setCurrentWorkflowDescription,
       setNodes,
       setEdges,
       setSelectedNodeId,
@@ -291,6 +306,11 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
       setEdges(workflow.edges);
       setCurrentWorkflowId(workflow.id);
       setCurrentWorkflowName(workflow.name);
+      setCurrentWorkflowDescription(workflow.description || "");
+      setCurrentWorkflowIcon(workflow.icon || DEFAULT_WORKFLOW_ICON);
+      setCurrentWorkflowIconColor(
+        workflow.iconColor || DEFAULT_WORKFLOW_ICON_COLOR
+      );
       setHasUnsavedChanges(false);
       setWorkflowNotFound(false);
 
@@ -308,6 +328,9 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
     setEdges,
     setCurrentWorkflowId,
     setCurrentWorkflowName,
+    setCurrentWorkflowDescription,
+    setCurrentWorkflowIcon,
+    setCurrentWorkflowIconColor,
     setHasUnsavedChanges,
     setWorkflowNotFound,
     setSelectedNodeId,

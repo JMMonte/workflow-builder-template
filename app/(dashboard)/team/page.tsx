@@ -1,28 +1,32 @@
 "use client";
 
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { MoreHorizontal, Plus, RefreshCw, Trash2 } from "lucide-react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   api,
@@ -35,7 +39,7 @@ import { cn } from "@/lib/utils";
 
 function RoleBadge({ teamRole }: { teamRole: TeamMember["role"] }) {
   return (
-    <span className="rounded-full border px-2 py-0.5 font-medium text-xs capitalize">
+    <span className="rounded-md border bg-muted/30 px-2 py-1 font-medium text-xs capitalize">
       {teamRole}
     </span>
   );
@@ -55,30 +59,41 @@ function MemberRow({
   onRemove,
 }: MemberRowProps) {
   return (
-    <div className="flex items-center justify-between rounded-md bg-muted/20 p-3">
-      <div>
-        <p className="font-medium text-sm">
-          {member.name || member.email || "Member"}
-        </p>
-        <p className="text-muted-foreground text-xs">{member.email}</p>
+    <div className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b px-4 py-3 last:border-b-0">
+      <div className="truncate">
+        <p className="truncate font-medium text-sm">{member.name || "—"}</p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="truncate">
+        <p className="truncate text-muted-foreground text-sm">{member.email}</p>
+      </div>
+      <div>
         <RoleBadge teamRole={member.role} />
+      </div>
+      <div className="flex justify-end">
         {canManage && member.userId !== currentUserId ? (
-          <Button
-            onClick={() => onRemove(member.userId)}
-            size="sm"
-            variant="ghost"
-          >
-            Remove
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost">
+                <MoreHorizontal className="size-4" />
+                <span className="sr-only">Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => onRemove(member.userId)}
+              >
+                <Trash2 className="mr-2 size-4" />
+                Remove member
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
     </div>
   );
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Team management coordinates multiple handlers and data fetches
 export default function TeamManagementPage() {
   const { data: session, isPending } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
@@ -87,22 +102,15 @@ export default function TeamManagementPage() {
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [newTeamName, setNewTeamName] = useState("");
-  const [renameDraft, setRenameDraft] = useState("");
-  const [creatingTeam, setCreatingTeam] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const currentUserId = session?.user?.id ?? null;
+  const hasLoadedInitialData = useRef(false);
+  const lastHandledTeamId = useRef<string | null>(null);
+  const syncingTeamChange = useRef(false);
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) || null;
   const canManageTeam = activeTeam?.role === "owner";
-  let displayRole: TeamMember["role"] | null = null;
-  if (canManageTeam) {
-    displayRole = "owner";
-  } else if (activeTeam) {
-    displayRole = activeTeam.role;
-  }
 
   const loadMembers = useCallback(async (teamId: string) => {
     try {
@@ -140,6 +148,8 @@ export default function TeamManagementPage() {
   const loadTeams = useCallback(
     async (preferredId?: string | null) => {
       try {
+        hasLoadedInitialData.current = true;
+        syncingTeamChange.current = true;
         setLoadingTeams(true);
         const data = await api.team.list();
         setTeams(data);
@@ -148,16 +158,18 @@ export default function TeamManagementPage() {
         setActiveTeamId(nextId);
 
         if (nextId) {
+          lastHandledTeamId.current = nextId;
           api.team.setActiveTeam(nextId);
-          setRenameDraft(data.find((team) => team.id === nextId)?.name || "");
           await loadMembers(nextId);
         } else {
+          lastHandledTeamId.current = null;
           setMembers([]);
         }
       } catch (error) {
         console.error("Failed to load teams:", error);
         toast.error("Failed to load teams");
       } finally {
+        syncingTeamChange.current = false;
         setLoadingTeams(false);
       }
     },
@@ -169,58 +181,73 @@ export default function TeamManagementPage() {
       return;
     }
 
-    if (!session?.user) {
+    if (!currentUserId) {
       setLoadingTeams(false);
       return;
     }
 
+    if (hasLoadedInitialData.current) {
+      return;
+    }
+
     loadTeams();
-  }, [isPending, loadTeams, session?.user]);
+  }, [currentUserId, isPending, loadTeams]);
 
-  const handleTeamChange = async (teamId: string) => {
-    setActiveTeamId(teamId);
-    api.team.setActiveTeam(teamId);
-    setRenameDraft(teams.find((team) => team.id === teamId)?.name || "");
-    await loadMembers(teamId);
-  };
+  useEffect(() => {
+    const getTeamIdFromEvent = (incomingEvent: Event): string | null => {
+      if (incomingEvent instanceof CustomEvent) {
+        return (
+          (incomingEvent as CustomEvent<{ teamId?: string }>).detail?.teamId ||
+          null
+        );
+      }
 
-  const handleCreateTeam = async () => {
-    if (!newTeamName.trim()) {
-      toast.error("Enter a team name");
-      return;
-    }
+      if (
+        incomingEvent instanceof StorageEvent &&
+        incomingEvent.key === TEAM_STORAGE_KEY
+      ) {
+        return incomingEvent.newValue;
+      }
 
-    try {
-      setCreatingTeam(true);
-      const created = await api.team.create(newTeamName.trim());
-      await loadTeams(created.id);
-      setNewTeamName("");
-      toast.success("Team created");
-    } catch (error) {
-      console.error("Failed to create team:", error);
-      toast.error("Failed to create team");
-    } finally {
-      setCreatingTeam(false);
-    }
-  };
+      return null;
+    };
 
-  const handleRenameTeam = async () => {
-    if (!(activeTeamId && renameDraft.trim())) {
-      return;
-    }
+    const handleExternalTeamChange = (event: Event) => {
+      if (syncingTeamChange.current) {
+        return;
+      }
 
-    try {
-      setRenaming(true);
-      await api.team.update(activeTeamId, renameDraft.trim());
-      await loadTeams(activeTeamId);
-      toast.success("Team name updated");
-    } catch (error) {
-      console.error("Failed to rename team:", error);
-      toast.error("Failed to rename team");
-    } finally {
-      setRenaming(false);
-    }
-  };
+      const detailTeamId = getTeamIdFromEvent(event);
+      const storedTeamId =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(TEAM_STORAGE_KEY)
+          : null;
+
+      const nextTeamId = detailTeamId || storedTeamId;
+
+      if (!nextTeamId || nextTeamId === activeTeamId) {
+        return;
+      }
+
+      if (nextTeamId === lastHandledTeamId.current) {
+        return;
+      }
+
+      lastHandledTeamId.current = nextTeamId;
+      loadTeams(nextTeamId);
+    };
+
+    window.addEventListener("active-team-change", handleExternalTeamChange);
+    window.addEventListener("storage", handleExternalTeamChange);
+
+    return () => {
+      window.removeEventListener(
+        "active-team-change",
+        handleExternalTeamChange
+      );
+      window.removeEventListener("storage", handleExternalTeamChange);
+    };
+  }, [activeTeamId, loadTeams]);
 
   const handleInvite = async () => {
     if (!activeTeamId) {
@@ -239,6 +266,7 @@ export default function TeamManagementPage() {
       await loadMembers(activeTeamId);
       toast.success("Member invited");
       setInviteEmail("");
+      setInviteDialogOpen(false);
     } catch (error) {
       console.error("Failed to invite member:", error);
       toast.error(
@@ -264,32 +292,38 @@ export default function TeamManagementPage() {
     }
   };
 
-  const handleDeleteTeam = async () => {
-    if (!activeTeamId) {
-      return;
-    }
-
-    try {
-      setDeleting(true);
-      await api.team.delete(activeTeamId);
-      setDeleteDialogOpen(false);
-      toast.success("Team deleted");
-      await loadTeams();
-    } catch (error) {
-      console.error("Failed to delete team:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete team"
-      );
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   let membersContent: ReactNode = null;
   if (loadingMembers) {
+    const skeletonRows = Array.from(
+      { length: 5 },
+      (_, index) => `member-${index}`
+    );
+
     membersContent = (
-      <div className="flex justify-center py-6">
-        <Spinner />
+      <div className="overflow-hidden rounded-md border">
+        <div className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b bg-muted/50 px-4 py-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-12" />
+          <div className="flex justify-end">
+            <Skeleton className="h-4 w-10" />
+          </div>
+        </div>
+        <div>
+          {skeletonRows.map((key) => (
+            <div
+              className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b px-4 py-3 last:border-b-0"
+              key={key}
+            >
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-52" />
+              <Skeleton className="h-6 w-20 rounded-md" />
+              <div className="flex justify-end">
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   } else if (members.length === 0) {
@@ -303,16 +337,32 @@ export default function TeamManagementPage() {
     );
   } else {
     membersContent = (
-      <div className="space-y-2">
-        {members.map((member) => (
-          <MemberRow
-            canManage={canManageTeam}
-            currentUserId={session?.user?.id}
-            key={member.id}
-            member={member}
-            onRemove={handleRemoveMember}
-          />
-        ))}
+      <div className="overflow-hidden rounded-md border">
+        <div className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b bg-muted/50 px-4 py-2">
+          <p className="font-medium text-muted-foreground text-xs uppercase">
+            Name
+          </p>
+          <p className="font-medium text-muted-foreground text-xs uppercase">
+            Email
+          </p>
+          <p className="font-medium text-muted-foreground text-xs uppercase">
+            Role
+          </p>
+          <p className="text-right font-medium text-muted-foreground text-xs uppercase">
+            Actions
+          </p>
+        </div>
+        <div>
+          {members.map((member) => (
+            <MemberRow
+              canManage={canManageTeam}
+              currentUserId={session?.user?.id}
+              key={member.id}
+              member={member}
+              onRemove={handleRemoveMember}
+            />
+          ))}
+        </div>
       </div>
     );
   }
@@ -330,210 +380,83 @@ export default function TeamManagementPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-semibold text-2xl tracking-tight">Teams</h1>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Manage team membership and access control
+          <h1 className="font-semibold text-2xl">Members</h1>
+          <p className="text-muted-foreground text-sm">
+            Manage workspace members and permissions
           </p>
         </div>
-        <Button
-          disabled={loadingTeams || isPending}
-          onClick={() => loadTeams(activeTeamId)}
-          size="sm"
-          variant="ghost"
-        >
-          <RefreshCw
-            className={cn("size-4", loadingTeams ? "animate-spin" : undefined)}
-          />
-        </Button>
-      </div>
-
-      <div className="space-y-8">
-        <section className="space-y-3">
-          <div>
-            <Label className="text-base">Current team</Label>
-            <p className="text-muted-foreground text-xs">
-              All workflows and integrations belong to this team
-            </p>
-          </div>
-          <Select
-            disabled={loadingTeams || teams.length === 0}
-            onValueChange={handleTeamChange}
-            value={activeTeamId || ""}
+        <div className="flex items-center gap-2">
+          <Button
+            disabled={loadingTeams || isPending}
+            onClick={() => loadTeams(activeTeamId)}
+            size="sm"
+            variant="outline"
           >
-            <SelectTrigger className="w-full max-w-sm">
-              <SelectValue placeholder="No teams available" />
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map((team) => (
-                <SelectItem key={team.id} value={team.id}>
-                  <div className="flex items-center justify-between gap-4">
-                    <span>{team.name}</span>
-                    <span className="text-muted-foreground text-xs capitalize">
-                      {team.role}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </section>
-
-        {activeTeam ? (
-          <>
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-medium text-sm">Team members</h2>
-                  <p className="text-muted-foreground text-xs">
-                    {activeTeam.name}
-                  </p>
-                </div>
-                {displayRole ? <RoleBadge teamRole={displayRole} /> : null}
-              </div>
-
-              {membersContent}
-
-              {canManageTeam ? (
-                <div className="space-y-2 border-t pt-4">
-                  <Label className="text-sm">Invite member</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      className="max-w-xs"
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder="email@example.com"
-                      value={inviteEmail}
-                    />
-                    <Button
-                      disabled={
-                        inviting || !inviteEmail.trim() || !activeTeamId
-                      }
-                      onClick={handleInvite}
-                      size="sm"
-                    >
-                      {inviting ? <Spinner className="mr-2 size-4" /> : null}
-                      Invite
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-
-            {canManageTeam ? (
-              <section className="space-y-3">
-                <div>
-                  <Label className="text-sm">Team settings</Label>
-                  <p className="text-muted-foreground text-xs">
-                    Rename or delete this team
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Input
-                      className="max-w-xs"
-                      onChange={(e) => setRenameDraft(e.target.value)}
-                      placeholder="Team name"
-                      value={renameDraft}
-                    />
-                    <Button
-                      disabled={
-                        renaming ||
-                        !renameDraft.trim() ||
-                        renameDraft.trim() === activeTeam?.name
-                      }
-                      onClick={handleRenameTeam}
-                      size="sm"
-                      variant="outline"
-                    >
-                      {renaming ? <Spinner className="mr-2 size-4" /> : null}
-                      Rename
-                    </Button>
-                  </div>
-                </div>
-              </section>
-            ) : null}
-          </>
-        ) : null}
-
-        <section className="space-y-3 border-t pt-6">
-          <div>
-            <Label className="text-sm">Create team</Label>
-            <p className="text-muted-foreground text-xs">
-              Start a new team for your workflows
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              className="max-w-xs"
-              onChange={(e) => setNewTeamName(e.target.value)}
-              placeholder="Team name"
-              value={newTeamName}
+            <RefreshCw
+              className={cn(
+                "size-4",
+                loadingTeams ? "animate-spin" : undefined
+              )}
             />
-            <Button
-              disabled={creatingTeam || !newTeamName.trim()}
-              onClick={handleCreateTeam}
-              size="sm"
-            >
-              {creatingTeam ? (
-                <Spinner className="mr-2 size-4" />
-              ) : (
-                <Plus className="mr-2 size-4" />
-              )}
-              Create
-            </Button>
-          </div>
-        </section>
-
-        {canManageTeam && activeTeam ? (
-          <section className="space-y-3 border-destructive/20 border-t pt-6">
-            <div>
-              <Label className="text-sm">Danger zone</Label>
-              <p className="text-muted-foreground text-xs">
-                Permanently delete this team
-              </p>
-            </div>
-            <Button
-              disabled={!activeTeamId}
-              onClick={() => setDeleteDialogOpen(true)}
-              size="sm"
-              variant="destructive"
-            >
-              {deleting ? (
-                <Spinner className="mr-2 size-4" />
-              ) : (
-                <Trash2 className="mr-2 size-4" />
-              )}
-              Delete team
-            </Button>
-          </section>
-        ) : null}
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      <AlertDialog onOpenChange={setDeleteDialogOpen} open={deleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this team?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the team and revoke member access. Workflows or
-              integrations should be moved or deleted first. This action cannot
-              be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleting}
-              onClick={handleDeleteTeam}
+      <div className="space-y-4">
+        {canManageTeam && activeTeam ? (
+          <div className="flex items-center justify-end">
+            <Button
+              onClick={() => {
+                setInviteEmail("");
+                setInviteDialogOpen(true);
+              }}
+              size="sm"
+              variant="outline"
             >
-              {deleting ? <Spinner className="mr-2 size-4" /> : null}
-              Delete team
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <Plus className="mr-2 size-4" />
+              Invite
+            </Button>
+          </div>
+        ) : null}
+
+        {membersContent}
+      </div>
+
+      <Dialog onOpenChange={setInviteDialogOpen} open={inviteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite member</DialogTitle>
+            <DialogDescription>
+              Invite a teammate to {activeTeam?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                id="email"
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="teammate@example.com"
+                type="email"
+                value={inviteEmail}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={inviting || !inviteEmail.trim() || !activeTeamId}
+              onClick={handleInvite}
+            >
+              {inviting ? <Spinner className="mr-2 size-4" /> : null}
+              Send invite
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

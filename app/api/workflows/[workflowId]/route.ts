@@ -86,6 +86,12 @@ export async function PATCH(
     if (body.description !== undefined) {
       updateData.description = body.description;
     }
+    if (body.icon !== undefined) {
+      updateData.icon = body.icon;
+    }
+    if (body.iconColor !== undefined) {
+      updateData.iconColor = body.iconColor;
+    }
     if (body.nodes !== undefined) {
       updateData.nodes = body.nodes;
     }
