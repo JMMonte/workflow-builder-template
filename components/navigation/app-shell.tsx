@@ -109,31 +109,7 @@ type AppShellProps = {
   children: ReactNode;
 };
 
-type UserIdentityProps = {
-  userEmail?: string;
-  userName?: string;
-};
-
-function UserIdentity({ userEmail, userName }: UserIdentityProps) {
-  if (!(userEmail || userName)) {
-    return null;
-  }
-
-  return (
-    <div className="flex min-w-0 flex-col">
-      {userName ? (
-        <span className="truncate font-medium text-sm">{userName}</span>
-      ) : null}
-      {userEmail ? (
-        <span className="truncate text-muted-foreground text-xs">
-          {userEmail}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-type SidebarUserSectionProps = UserIdentityProps & {
+type SidebarUserSectionProps = {
   collapsed: boolean;
   hasUserDetails: boolean;
 };
@@ -141,49 +117,23 @@ type SidebarUserSectionProps = UserIdentityProps & {
 function SidebarUserSection({
   collapsed,
   hasUserDetails,
-  userEmail,
-  userName,
 }: SidebarUserSectionProps) {
-  let alignment = "justify-end";
-
-  if (collapsed) {
-    alignment = "justify-center";
-  } else if (hasUserDetails) {
-    alignment = "justify-between";
-  }
-
   return (
     <div className="mt-auto px-3 pb-4">
       <Separator className="mb-3" />
-      <div className={cn("flex items-center gap-3", alignment)}>
-        {collapsed ? null : (
-          <UserIdentity userEmail={userEmail} userName={userName} />
-        )}
-        <UserMenu />
-      </div>
+      <UserMenu showUserDetails={!collapsed && hasUserDetails} />
     </div>
   );
 }
 
-type MobileUserSectionProps = UserIdentityProps & {
+type MobileUserSectionProps = {
   hasUserDetails: boolean;
 };
 
-function MobileUserSection({
-  hasUserDetails,
-  userEmail,
-  userName,
-}: MobileUserSectionProps) {
-  const alignment = hasUserDetails ? "justify-between" : "justify-end";
-
+function MobileUserSection({ hasUserDetails }: MobileUserSectionProps) {
   return (
     <div className="border-t px-4 py-4">
-      <div className={cn("flex items-center gap-3", alignment)}>
-        {hasUserDetails ? (
-          <UserIdentity userEmail={userEmail} userName={userName} />
-        ) : null}
-        <UserMenu />
-      </div>
+      <UserMenu showUserDetails={hasUserDetails} />
     </div>
   );
 }
@@ -200,8 +150,6 @@ function DesktopSidebar({
   isWorkflowDetail,
   onToggleCollapse,
   pathname,
-  userEmail,
-  userName,
 }: DesktopSidebarProps) {
   return (
     <aside
@@ -223,8 +171,6 @@ function DesktopSidebar({
         <SidebarUserSection
           collapsed={collapsed}
           hasUserDetails={hasUserDetails}
-          userEmail={userEmail}
-          userName={userName}
         />
       </div>
       <button
@@ -254,8 +200,6 @@ function MobileNavigation({
   mobileOpen,
   onOpenChange,
   pathname,
-  userEmail,
-  userName,
 }: MobileNavigationProps) {
   return (
     <Sheet onOpenChange={onOpenChange} open={mobileOpen}>
@@ -270,11 +214,7 @@ function MobileNavigation({
               onNavigate={() => onOpenChange(false)}
             />
           </div>
-          <MobileUserSection
-            hasUserDetails={hasUserDetails}
-            userEmail={userEmail}
-            userName={userName}
-          />
+          <MobileUserSection hasUserDetails={hasUserDetails} />
         </div>
       </SheetContent>
     </Sheet>
@@ -289,9 +229,7 @@ export function AppShell({ children }: AppShellProps) {
   const lastTeamId = useRef<string | null>(null);
   const { data: session } = useSession();
   const isWorkflowDetail = pathname.startsWith("/workflows/");
-  const userName = session?.user?.name;
-  const userEmail = session?.user?.email;
-  const hasUserDetails = Boolean(userName || userEmail);
+  const hasUserDetails = Boolean(session?.user?.name || session?.user?.email);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -345,8 +283,6 @@ export function AppShell({ children }: AppShellProps) {
           isWorkflowDetail={isWorkflowDetail}
           onToggleCollapse={() => setCollapsed((prev) => !prev)}
           pathname={pathname}
-          userEmail={userEmail}
-          userName={userName}
         />
 
         <div className="flex min-h-screen flex-1 flex-col overflow-hidden">
@@ -376,8 +312,6 @@ export function AppShell({ children }: AppShellProps) {
           mobileOpen={mobileOpen}
           onOpenChange={setMobileOpen}
           pathname={pathname}
-          userEmail={userEmail}
-          userName={userName}
         />
       </div>
     </TooltipProvider>

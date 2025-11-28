@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -14,7 +14,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  GridTable,
+  type GridTableColumn,
+  GridTableRow,
+} from "@/components/ui/grid-table";
 import { IntegrationIcon } from "@/components/ui/integration-icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { api, type Integration, type IntegrationType } from "@/lib/api-client";
 import { IntegrationFormDialog } from "./integration-form-dialog";
@@ -29,12 +35,80 @@ const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
   custom: "Custom",
 };
 
+const INTEGRATION_GRID_TEMPLATE =
+  "grid-cols-[minmax(220px,2fr)_minmax(160px,1fr)_minmax(220px,1.2fr)]";
+
+const INTEGRATION_COLUMNS: GridTableColumn[] = [
+  { id: "integration", label: "Integration" },
+  { id: "type", label: "Type" },
+  { id: "actions", label: "Actions", align: "right" },
+];
+
 type IntegrationsManagerProps = {
   showCreateDialog: boolean;
+  onShowCreateDialogChange?: (open: boolean) => void;
 };
+
+type IntegrationRowProps = {
+  integration: Integration;
+  isTestable: boolean;
+  onTest: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  testing: boolean;
+};
+
+function IntegrationRow({
+  integration,
+  isTestable,
+  onTest,
+  onEdit,
+  onDelete,
+  testing,
+}: IntegrationRowProps) {
+  return (
+    <GridTableRow template={INTEGRATION_GRID_TEMPLATE}>
+      <div className="flex items-center gap-3">
+        <IntegrationIcon
+          className="size-8"
+          integration={
+            integration.type === "ai-gateway" ? "vercel" : integration.type
+          }
+        />
+        <p className="font-medium text-sm">{integration.name}</p>
+      </div>
+      <p className="text-muted-foreground text-sm">
+        {INTEGRATION_TYPE_LABELS[integration.type]}
+      </p>
+      <div className="flex items-center justify-end gap-2">
+        {isTestable ? (
+          <Button
+            disabled={testing}
+            onClick={onTest}
+            size="sm"
+            variant="outline"
+          >
+            {testing ? <Spinner className="size-4" /> : "Test"}
+          </Button>
+        ) : (
+          <Button disabled size="sm" variant="outline">
+            No test
+          </Button>
+        )}
+        <Button onClick={onEdit} size="sm" variant="outline">
+          <Pencil className="size-4" />
+        </Button>
+        <Button onClick={onDelete} size="sm" variant="outline">
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </GridTableRow>
+  );
+}
 
 export function IntegrationsManager({
   showCreateDialog: externalShowCreateDialog,
+  onShowCreateDialogChange,
 }: IntegrationsManagerProps) {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,93 +176,94 @@ export function IntegrationsManager({
   const handleDialogClose = () => {
     setShowCreateDialog(false);
     setEditingIntegration(null);
+    onShowCreateDialogChange?.(false);
   };
 
   const handleDialogSuccess = async () => {
     await loadIntegrations();
   };
 
+  const skeletonRows = Array.from(
+    { length: 4 },
+    (_, index) => `integration-skeleton-${index}`
+  );
+
+  let tableContent: ReactNode = null;
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Spinner />
+    tableContent = (
+      <GridTable
+        columns={[
+          { id: "integration", label: <Skeleton className="h-4 w-24" /> },
+          { id: "type", label: <Skeleton className="h-4 w-12" /> },
+          {
+            id: "actions",
+            label: (
+              <div className="flex justify-end">
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ),
+            align: "right",
+          },
+        ]}
+        template={INTEGRATION_GRID_TEMPLATE}
+      >
+        {skeletonRows.map((rowKey) => (
+          <GridTableRow
+            className="items-center"
+            key={rowKey}
+            template={INTEGRATION_GRID_TEMPLATE}
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-md" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+            <Skeleton className="h-4 w-16" />
+            <div className="flex items-center justify-end gap-2">
+              <Skeleton className="h-8 w-16 rounded-md" />
+              <Skeleton className="h-8 w-9 rounded-md" />
+              <Skeleton className="h-8 w-9 rounded-md" />
+            </div>
+          </GridTableRow>
+        ))}
+      </GridTable>
+    );
+  } else if (integrations.length === 0) {
+    tableContent = (
+      <div className="rounded-lg border border-dashed py-12 text-center">
+        <p className="text-muted-foreground text-sm">
+          No integrations configured yet
+        </p>
       </div>
+    );
+  } else {
+    tableContent = (
+      <GridTable
+        columns={INTEGRATION_COLUMNS}
+        template={INTEGRATION_GRID_TEMPLATE}
+      >
+        {integrations.map((integration) => {
+          const isTestable = integration.type !== "custom";
+
+          return (
+            <IntegrationRow
+              integration={integration}
+              isTestable={isTestable}
+              key={integration.id}
+              onDelete={() => setDeletingId(integration.id)}
+              onEdit={() => setEditingIntegration(integration)}
+              onTest={() => handleTest(integration.id)}
+              testing={testingId === integration.id}
+            />
+          );
+        })}
+      </GridTable>
     );
   }
 
   return (
     <div className="space-y-4">
-      {integrations.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-12 text-center">
-          <p className="text-muted-foreground text-sm">
-            No integrations configured yet
-          </p>
-        </div>
-      ) : (
-        <div className="divide-y">
-          {integrations.map((integration) => {
-            const isTestable = integration.type !== "custom";
-
-            return (
-              <div
-                className="flex items-center justify-between gap-4 py-3"
-                key={integration.id}
-              >
-                <div className="flex items-center gap-3">
-                  <IntegrationIcon
-                    className="size-8"
-                    integration={
-                      integration.type === "ai-gateway"
-                        ? "vercel"
-                        : integration.type
-                    }
-                  />
-                  <div>
-                    <p className="font-medium text-sm">{integration.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {INTEGRATION_TYPE_LABELS[integration.type]}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isTestable ? (
-                    <Button
-                      disabled={testingId === integration.id}
-                      onClick={() => handleTest(integration.id)}
-                      size="sm"
-                      variant="outline"
-                    >
-                      {testingId === integration.id ? (
-                        <Spinner className="size-4" />
-                      ) : (
-                        "Test"
-                      )}
-                    </Button>
-                  ) : (
-                    <Button disabled size="sm" variant="outline">
-                      No test
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => setEditingIntegration(integration)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                  <Button
-                    onClick={() => setDeletingId(integration.id)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {tableContent}
 
       {(showCreateDialog || editingIntegration) && (
         <IntegrationFormDialog

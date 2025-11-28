@@ -4,7 +4,6 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { IntegrationsManager } from "@/components/settings/integrations-manager";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useSession } from "@/lib/auth-client";
 
@@ -38,9 +37,10 @@ export default function IntegrationsPage() {
           Add integration
         </Button>
       </div>
-      <Card className="p-4">
-        <IntegrationsManager showCreateDialog={showCreate} />
-      </Card>
+      <IntegrationsManager
+        onShowCreateDialogChange={setShowCreate}
+        showCreateDialog={showCreate}
+      />
     </div>
   );
 }

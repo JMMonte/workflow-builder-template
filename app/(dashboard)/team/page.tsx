@@ -24,6 +24,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  GridTable,
+  type GridTableColumn,
+  GridTableRow,
+} from "@/components/ui/grid-table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,6 +50,16 @@ function RoleBadge({ teamRole }: { teamRole: TeamMember["role"] }) {
   );
 }
 
+const MEMBER_GRID_TEMPLATE =
+  "grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px]";
+
+const MEMBER_COLUMNS: GridTableColumn[] = [
+  { id: "name", label: "Name" },
+  { id: "email", label: "Email" },
+  { id: "role", label: "Role" },
+  { id: "actions", label: "Actions", align: "right" },
+];
+
 type MemberRowProps = {
   member: TeamMember;
   canManage: boolean;
@@ -59,7 +74,7 @@ function MemberRow({
   onRemove,
 }: MemberRowProps) {
   return (
-    <div className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b px-4 py-3 last:border-b-0">
+    <GridTableRow className="items-center" template={MEMBER_GRID_TEMPLATE}>
       <div className="truncate">
         <p className="truncate font-medium text-sm">{member.name || "—"}</p>
       </div>
@@ -90,7 +105,7 @@ function MemberRow({
           </DropdownMenu>
         ) : null}
       </div>
-    </div>
+    </GridTableRow>
   );
 }
 
@@ -300,31 +315,38 @@ export default function TeamManagementPage() {
     );
 
     membersContent = (
-      <div className="overflow-hidden rounded-md border">
-        <div className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b bg-muted/50 px-4 py-2">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-4 w-12" />
-          <div className="flex justify-end">
-            <Skeleton className="h-4 w-10" />
-          </div>
-        </div>
-        <div>
-          {skeletonRows.map((key) => (
-            <div
-              className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b px-4 py-3 last:border-b-0"
-              key={key}
-            >
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-52" />
-              <Skeleton className="h-6 w-20 rounded-md" />
+      <GridTable
+        columns={[
+          { id: "name", label: <Skeleton className="h-4 w-16" /> },
+          { id: "email", label: <Skeleton className="h-4 w-28" /> },
+          { id: "role", label: <Skeleton className="h-4 w-12" /> },
+          {
+            id: "actions",
+            label: (
               <div className="flex justify-end">
-                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-4 w-10" />
               </div>
+            ),
+            align: "right",
+          },
+        ]}
+        template={MEMBER_GRID_TEMPLATE}
+      >
+        {skeletonRows.map((key) => (
+          <GridTableRow
+            className="items-center"
+            key={key}
+            template={MEMBER_GRID_TEMPLATE}
+          >
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-52" />
+            <Skeleton className="h-6 w-20 rounded-md" />
+            <div className="flex justify-end">
+              <Skeleton className="h-8 w-8 rounded-md" />
             </div>
-          ))}
-        </div>
-      </div>
+          </GridTableRow>
+        ))}
+      </GridTable>
     );
   } else if (members.length === 0) {
     membersContent = (
@@ -337,33 +359,17 @@ export default function TeamManagementPage() {
     );
   } else {
     membersContent = (
-      <div className="overflow-hidden rounded-md border">
-        <div className="grid grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px] items-center gap-4 border-b bg-muted/50 px-4 py-2">
-          <p className="font-medium text-muted-foreground text-xs uppercase">
-            Name
-          </p>
-          <p className="font-medium text-muted-foreground text-xs uppercase">
-            Email
-          </p>
-          <p className="font-medium text-muted-foreground text-xs uppercase">
-            Role
-          </p>
-          <p className="text-right font-medium text-muted-foreground text-xs uppercase">
-            Actions
-          </p>
-        </div>
-        <div>
-          {members.map((member) => (
-            <MemberRow
-              canManage={canManageTeam}
-              currentUserId={session?.user?.id}
-              key={member.id}
-              member={member}
-              onRemove={handleRemoveMember}
-            />
-          ))}
-        </div>
-      </div>
+      <GridTable columns={MEMBER_COLUMNS} template={MEMBER_GRID_TEMPLATE}>
+        {members.map((member) => (
+          <MemberRow
+            canManage={canManageTeam}
+            currentUserId={session?.user?.id}
+            key={member.id}
+            member={member}
+            onRemove={handleRemoveMember}
+          />
+        ))}
+      </GridTable>
     );
   }
 
@@ -403,28 +409,22 @@ export default function TeamManagementPage() {
             />
             Refresh
           </Button>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {canManageTeam && activeTeam ? (
-          <div className="flex items-center justify-end">
+          {canManageTeam && activeTeam ? (
             <Button
               onClick={() => {
                 setInviteEmail("");
                 setInviteDialogOpen(true);
               }}
               size="sm"
-              variant="outline"
             >
               <Plus className="mr-2 size-4" />
               Invite
             </Button>
-          </div>
-        ) : null}
-
-        {membersContent}
+          ) : null}
+        </div>
       </div>
+
+      <div className="space-y-4">{membersContent}</div>
 
       <Dialog onOpenChange={setInviteDialogOpen} open={inviteDialogOpen}>
         <DialogContent>
