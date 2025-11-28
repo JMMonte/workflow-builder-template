@@ -14,9 +14,9 @@ import { mono, sans } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Zipline | AI Workflow Automations for Teams",
+  title: "Flowzipper | AI Workflow Automations for Teams",
   description:
-    "Zipline is an app for managing AI workflow automations for teams with a collaborative visual builder.",
+    "Flowzipper is an app for managing AI workflow automations for teams with a collaborative visual builder.",
 };
 
 export const viewport: Viewport = {
