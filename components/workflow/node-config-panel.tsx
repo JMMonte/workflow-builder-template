@@ -23,15 +23,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
+import { IconGrid } from "@/components/ui/icon-grid";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getWorkflowIconColors,
@@ -495,29 +489,13 @@ export const PanelInner = () => {
                 <Label className="ml-1" htmlFor="workflow-icon">
                   Icon
                 </Label>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Select
-                    onValueChange={handleUpdateWorkspaceIcon}
+                <div className="space-y-3">
+                  <IconGrid
+                    id="workflow-icon"
+                    onChange={handleUpdateWorkspaceIcon}
+                    options={WORKFLOW_ICON_OPTIONS}
                     value={currentWorkflowIcon}
-                  >
-                    <SelectTrigger className="w-[220px]" id="workflow-icon">
-                      <SelectValue placeholder="Choose an icon" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WORKFLOW_ICON_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div className="flex items-center gap-2">
-                            <WorkflowIconDisplay
-                              className="size-4"
-                              color={currentWorkflowIconColor}
-                              value={option.value}
-                            />
-                            <span>{option.label}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                   <div
                     className="flex h-10 w-10 items-center justify-center rounded-md border"
                     style={{

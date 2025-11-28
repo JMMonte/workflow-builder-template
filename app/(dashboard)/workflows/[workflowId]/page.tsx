@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NodeConfigPanel } from "@/components/workflow/node-config-panel";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { api } from "@/lib/api-client";
+import { ApiError, api } from "@/lib/api-client";
 import {
   DEFAULT_WORKFLOW_ICON,
   DEFAULT_WORKFLOW_ICON_COLOR,
@@ -322,6 +322,14 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
 
       return workflow;
     } catch (error) {
+      // Handle 404 errors (workflow not found in team) differently
+      if (error instanceof ApiError && error.status === 404) {
+        // Don't show toast or modal for 404 - let the caller handle it
+        setWorkflowNotFound(false);
+        return null;
+      }
+
+      // For other errors, log and show the modal
       console.error("Failed to load workflow:", error);
       toast.error("Failed to load workflow");
       setWorkflowNotFound(true);
@@ -362,7 +370,11 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
         sessionStorage.removeItem("generating-workflow-id");
         await generateWorkflowFromAI(storedPrompt);
       } else {
-        await loadExistingWorkflow();
+        const workflow = await loadExistingWorkflow();
+        // If workflow not found (404), show the modal
+        if (!workflow) {
+          setWorkflowNotFound(true);
+        }
       }
     };
 
@@ -374,6 +386,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
     nodes.length,
     generateWorkflowFromAI,
     loadExistingWorkflow,
+    setWorkflowNotFound,
   ]);
 
   // Keyboard shortcuts
@@ -604,18 +617,11 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
   // Listen for team changes and validate workflow access
   useEffect(() => {
     const handleTeamChange = async () => {
-      try {
-        // Try to reload the workflow with the new team
-        const workflow = await loadExistingWorkflow();
+      // Try to reload the workflow with the new team
+      const workflow = await loadExistingWorkflow();
 
-        // If workflow is not found or doesn't belong to the new team, redirect to workflows page
-        if (!workflow) {
-          toast.error("This workflow is not available for the selected team");
-          router.push("/workflows");
-        }
-      } catch (error) {
-        // If there's an error loading, redirect to workflows page
-        console.error("Failed to reload workflow after team change:", error);
+      // If workflow is not found or doesn't belong to the new team, redirect to workflows page
+      if (!workflow) {
         toast.error("This workflow is not available for the selected team");
         router.push("/workflows");
       }
