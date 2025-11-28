@@ -374,10 +374,22 @@ export type IntegrationWithConfig = Integration & {
 export type Team = {
   id: string;
   name: string;
+  imageUrl: string | null;
+  icon: string | null;
+  iconColor: string | null;
   role: "owner" | "member";
   createdAt: string;
   updatedAt: string;
 };
+
+export type TeamInput = {
+  name: string;
+  icon?: string | null;
+  iconColor?: string | null;
+  imageUrl?: string | null;
+};
+
+export type TeamUpdateInput = Partial<TeamInput>;
 
 export type TeamMember = {
   id: string;
@@ -436,15 +448,15 @@ export const integrationApi = {
 // Team API
 export const teamApi = {
   list: () => apiCall<Team[]>("/api/teams"),
-  create: (name: string) =>
+  create: (data: TeamInput) =>
     apiCall<Team>("/api/teams", {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(data),
     }),
-  update: (teamId: string, name: string) =>
+  update: (teamId: string, data: TeamUpdateInput) =>
     apiCall<Team>(`/api/teams/${teamId}`, {
       method: "PATCH",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(data),
     }),
   delete: (teamId: string) =>
     apiCall<{ success: boolean }>(`/api/teams/${teamId}`, {

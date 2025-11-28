@@ -28,6 +28,9 @@ export async function getTeamsForUser(userId: string): Promise<TeamWithRole[]> {
     .select({
       id: teams.id,
       name: teams.name,
+      imageUrl: teams.imageUrl,
+      icon: teams.icon,
+      iconColor: teams.iconColor,
       createdAt: teams.createdAt,
       updatedAt: teams.updatedAt,
       role: teamMembers.role,
@@ -71,12 +74,20 @@ export async function getTeamMembership(
  */
 export async function createTeamForUser(
   userId: string,
-  name: string
+  name: string,
+  data?: {
+    icon?: string | null;
+    iconColor?: string | null;
+    imageUrl?: string | null;
+  }
 ): Promise<{ team: Team; membership: TeamMember }> {
   const [team] = await db
     .insert(teams)
     .values({
       name,
+      icon: data?.icon ?? null,
+      iconColor: data?.iconColor ?? null,
+      imageUrl: data?.imageUrl ?? null,
     })
     .returning();
 

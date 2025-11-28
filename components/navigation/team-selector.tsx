@@ -1,6 +1,17 @@
 "use client";
 
-import { Plus, Settings, Trash2 } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  type LucideIcon,
+  Plus,
+  Rocket,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -13,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +41,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
@@ -43,6 +56,256 @@ import { useSession } from "@/lib/auth-client";
 type TeamSelectorProps = {
   collapsed?: boolean;
 };
+
+const DEFAULT_TEAM_ICON_COLOR = "#2563eb";
+
+type TeamIconOption = {
+  value: string;
+  label: string;
+  Icon: LucideIcon;
+};
+
+const TEAM_ICON_OPTIONS: TeamIconOption[] = [
+  { value: "users", label: "Team", Icon: Users },
+  { value: "building-2", label: "Workspace", Icon: Building2 },
+  { value: "briefcase", label: "Operations", Icon: Briefcase },
+  { value: "sparkles", label: "AI", Icon: Sparkles },
+  { value: "rocket", label: "Launch", Icon: Rocket },
+  { value: "shield-check", label: "Security", Icon: ShieldCheck },
+];
+
+type TeamAvatarTeam = {
+  id?: string;
+  name: string;
+  icon?: string | null;
+  iconColor?: string | null;
+  imageUrl?: string | null;
+};
+
+const HEX_REGEX = /^#?([a-fA-F0-9]{3}|[a-fA-F0-9]{6})$/;
+
+function normalizeHex(color?: string | null) {
+  if (!color?.trim()) {
+    return null;
+  }
+
+  const match = color.trim().match(HEX_REGEX);
+  if (!match) {
+    return null;
+  }
+
+  let hex = match[1];
+  if (hex.length === 3) {
+    hex = hex
+      .split("")
+      .map((char) => char + char)
+      .join("");
+  }
+
+  return `#${hex}`;
+}
+
+function colorWithAlpha(hex: string, alpha = 0.12) {
+  const normalized = hex.replace("#", "");
+  const int = Number.parseInt(normalized, 16);
+  const r = Math.floor(int / 65_536) % 256;
+  const g = Math.floor(int / 256) % 256;
+  const b = int % 256;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getTeamIconOption(value?: string | null): TeamIconOption {
+  return (
+    TEAM_ICON_OPTIONS.find((option) => option.value === value) ||
+    TEAM_ICON_OPTIONS[0]
+  );
+}
+
+function getTeamIconColors(iconColor?: string | null) {
+  const normalizedHex = normalizeHex(iconColor) || DEFAULT_TEAM_ICON_COLOR;
+  const backgroundTint = colorWithAlpha(normalizedHex, 0.12);
+
+  return {
+    color: normalizedHex,
+    backgroundColor: backgroundTint,
+  };
+}
+
+function TeamAvatar({
+  team,
+  size = "md",
+}: {
+  team: TeamAvatarTeam;
+  size?: "sm" | "md" | "lg";
+}) {
+  const avatarKey =
+    team.id ?? `${team.name}-${team.icon ?? "initial"}-${team.imageUrl ?? ""}`;
+  const sizes: Record<"sm" | "md" | "lg", string> = {
+    sm: "h-6 w-6 text-[11px]",
+    md: "h-8 w-8 text-xs",
+    lg: "h-12 w-12 text-sm",
+  };
+
+  const hasIcon = Boolean(team.icon);
+  const iconOption = hasIcon ? getTeamIconOption(team.icon) : null;
+  const iconColors = hasIcon ? getTeamIconColors(team.iconColor) : null;
+
+  return (
+    <Avatar className={`shrink-0 rounded-md ${sizes[size]}`} key={avatarKey}>
+      {team.imageUrl ? (
+        <AvatarImage alt={`${team.name} logo`} src={team.imageUrl} />
+      ) : null}
+      <AvatarFallback
+        className="flex h-full w-full items-center justify-center rounded-md"
+        style={
+          iconColors
+            ? {
+                color: iconColors.color,
+                backgroundColor: iconColors.backgroundColor,
+              }
+            : {
+                backgroundColor: "hsl(var(--primary))",
+                color: "hsl(var(--primary-foreground))",
+              }
+        }
+      >
+        {iconOption ? (
+          <iconOption.Icon
+            className="size-4"
+            color={iconColors?.color || undefined}
+          />
+        ) : (
+          team.name?.charAt(0).toUpperCase() || "T"
+        )}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+function TeamBrandingFields({
+  colorInputId,
+  disabled,
+  icon,
+  iconColor,
+  iconInputId,
+  imageInputId,
+  imageUrl,
+  name,
+  onIconChange,
+  onIconColorChange,
+  onImageUrlChange,
+}: {
+  colorInputId: string;
+  disabled?: boolean;
+  icon: string;
+  iconColor: string;
+  iconInputId: string;
+  imageInputId: string;
+  imageUrl: string;
+  name: string;
+  onIconChange: (value: string) => void;
+  onIconColorChange: (value: string) => void;
+  onImageUrlChange: (value: string) => void;
+}) {
+  const previewTeam = {
+    name: name || "Team",
+    icon,
+    iconColor,
+    imageUrl,
+  };
+  const resolvedIconColor = iconColor || DEFAULT_TEAM_ICON_COLOR;
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor={imageInputId}>Team image</Label>
+        <div className="flex items-center gap-3">
+          <TeamAvatar size="lg" team={previewTeam} />
+          <div className="flex-1 space-y-2">
+            <Input
+              autoComplete="url"
+              disabled={disabled}
+              id={imageInputId}
+              onChange={(e) => onImageUrlChange(e.target.value)}
+              placeholder="https://example.com/team-logo.png"
+              type="url"
+              value={imageUrl}
+            />
+            <p className="text-muted-foreground text-xs">
+              Add a public image URL for your team. Leave empty to use an icon.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[1fr,auto] sm:items-end">
+        <div className="space-y-2">
+          <Label htmlFor={iconInputId}>Team icon</Label>
+          <div className="flex items-center gap-2">
+            <Select
+              disabled={disabled}
+              onValueChange={onIconChange}
+              value={icon || undefined}
+            >
+              <SelectTrigger id={iconInputId}>
+                <SelectValue placeholder="Use initials" />
+              </SelectTrigger>
+              <SelectContent>
+                {TEAM_ICON_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center gap-2">
+                      <option.Icon className="size-4" />
+                      <span>{option.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              disabled={disabled}
+              onClick={() => {
+                onIconChange("");
+                onIconColorChange("");
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Clear
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Choose an icon or clear to use the team initial.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={colorInputId}>Icon color</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              className="h-10 w-16 p-1"
+              disabled={disabled || !icon}
+              id={colorInputId}
+              onChange={(e) => onIconColorChange(e.target.value)}
+              type="color"
+              value={resolvedIconColor}
+            />
+            <Button
+              disabled={disabled || !icon}
+              onClick={() => onIconColorChange("")}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Reset
+            </Button>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Icon color applies when no image is set.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function TeamOptionsList({
   teams,
@@ -60,11 +323,11 @@ function TeamOptionsList({
       {teams.map((team) => (
         <SelectItem key={team.id} value={team.id}>
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 font-semibold text-primary text-xs">
-              {team.name.charAt(0).toUpperCase()}
-            </div>
+            <TeamAvatar size="sm" team={team} />
             <div className="flex flex-col">
-              <span className="font-medium text-sm">{team.name}</span>
+              <span className="font-medium text-foreground text-sm">
+                {team.name}
+              </span>
               <span className="text-muted-foreground text-xs capitalize">
                 {team.role}
               </span>
@@ -102,7 +365,13 @@ function CreateTeamDialog({
   open,
   onOpenChange,
   newTeamName,
+  newTeamIcon,
+  newTeamIconColor,
+  newTeamImageUrl,
   onNameChange,
+  onIconChange,
+  onIconColorChange,
+  onImageUrlChange,
   creating,
   onCreate,
   inputId,
@@ -110,7 +379,13 @@ function CreateTeamDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   newTeamName: string;
+  newTeamIcon: string;
+  newTeamIconColor: string;
+  newTeamImageUrl: string;
   onNameChange: (value: string) => void;
+  onIconChange: (value: string) => void;
+  onIconColorChange: (value: string) => void;
+  onImageUrlChange: (value: string) => void;
   creating: boolean;
   onCreate: () => void;
   inputId: string;
@@ -134,6 +409,19 @@ function CreateTeamDialog({
               value={newTeamName}
             />
           </div>
+          <TeamBrandingFields
+            colorInputId={`${inputId}-icon-color`}
+            disabled={creating}
+            icon={newTeamIcon}
+            iconColor={newTeamIconColor}
+            iconInputId={`${inputId}-icon`}
+            imageInputId={`${inputId}-image`}
+            imageUrl={newTeamImageUrl}
+            name={newTeamName}
+            onIconChange={onIconChange}
+            onIconColorChange={onIconColorChange}
+            onImageUrlChange={onImageUrlChange}
+          />
         </div>
         <DialogFooter>
           <Button disabled={creating || !newTeamName.trim()} onClick={onCreate}>
@@ -152,20 +440,32 @@ function TeamSettingsModal({
   activeTeam,
   renameDraft,
   onRenameChange,
-  renaming,
-  onRename,
+  saving,
+  onSave,
   deleting,
   onDelete,
+  icon,
+  onIconChange,
+  iconColor,
+  onIconColorChange,
+  imageUrl,
+  onImageUrlChange,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activeTeam: Team | null;
   renameDraft: string;
   onRenameChange: (value: string) => void;
-  renaming: boolean;
-  onRename: () => void;
+  saving: boolean;
+  onSave: () => void;
   deleting: boolean;
   onDelete: () => void;
+  icon: string;
+  onIconChange: (value: string) => void;
+  iconColor: string;
+  onIconColorChange: (value: string) => void;
+  imageUrl: string;
+  onImageUrlChange: (value: string) => void;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const canManageTeam = activeTeam?.role === "owner";
@@ -173,6 +473,15 @@ function TeamSettingsModal({
   if (!(activeTeam && canManageTeam)) {
     return null;
   }
+
+  const trimmedName = renameDraft.trim();
+  const normalize = (value?: string | null) => value?.trim() || "";
+  const hasChanges =
+    trimmedName.length > 0 &&
+    (trimmedName !== activeTeam.name ||
+      normalize(icon) !== normalize(activeTeam.icon) ||
+      normalize(iconColor) !== normalize(activeTeam.iconColor) ||
+      normalize(imageUrl) !== normalize(activeTeam.imageUrl));
 
   return (
     <>
@@ -194,11 +503,24 @@ function TeamSettingsModal({
                 value={renameDraft}
               />
             </div>
+            <TeamBrandingFields
+              colorInputId="team-icon-color"
+              disabled={saving || deleting}
+              icon={icon}
+              iconColor={iconColor}
+              iconInputId="team-icon"
+              imageInputId="team-image"
+              imageUrl={imageUrl}
+              name={renameDraft || activeTeam.name}
+              onIconChange={onIconChange}
+              onIconColorChange={onIconColorChange}
+              onImageUrlChange={onImageUrlChange}
+            />
           </div>
           <Separator />
           <DialogFooter className="flex-row justify-end">
             <Button
-              disabled={deleting}
+              disabled={deleting || saving}
               onClick={() => setDeleteDialogOpen(true)}
               variant="destructive"
             >
@@ -206,14 +528,10 @@ function TeamSettingsModal({
               Delete team
             </Button>
             <Button
-              disabled={
-                renaming ||
-                !renameDraft.trim() ||
-                renameDraft.trim() === activeTeam.name
-              }
-              onClick={onRename}
+              disabled={saving || deleting || !hasChanges}
+              onClick={onSave}
             >
-              {renaming ? <Spinner className="mr-2 size-4" /> : null}
+              {saving ? <Spinner className="mr-2 size-4" /> : null}
               Save changes
             </Button>
           </DialogFooter>
@@ -268,11 +586,16 @@ function CollapsedTeamPicker({
   onSettings: () => void;
   settingsDisabled: boolean;
 }) {
+  const displayTeam: TeamAvatarTeam = activeTeam || {
+    name: "Team",
+    icon: null,
+    iconColor: null,
+    imageUrl: null,
+  };
+
   const trigger = (
-    <SelectTrigger className="h-10 max-h-10 min-h-10 w-10 min-w-10 max-w-10 shrink-0 cursor-pointer border-none p-0 transition-colors hover:bg-sidebar-accent [&>span]:hidden">
-      <div className="flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-md bg-primary font-semibold text-primary-foreground text-xs">
-        {activeTeam?.name.charAt(0).toUpperCase() || "T"}
-      </div>
+    <SelectTrigger className="h-10 max-h-10 min-h-10 w-10 min-w-10 max-w-10 shrink-0 cursor-pointer border-none bg-sidebar p-0 text-foreground transition-colors hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent [&>span]:hidden">
+      <TeamAvatar size="md" team={displayTeam} />
     </SelectTrigger>
   );
 
@@ -291,7 +614,7 @@ function CollapsedTeamPicker({
           </SelectContent>
         </Select>
       </TooltipTrigger>
-      <TooltipContent side="right">{activeTeam?.name || "Team"}</TooltipContent>
+      <TooltipContent side="right">{displayTeam.name || "Team"}</TooltipContent>
     </Tooltip>
   );
 }
@@ -313,16 +636,21 @@ function ExpandedTeamPicker({
   onSettings: () => void;
   settingsDisabled: boolean;
 }) {
+  const displayTeam: TeamAvatarTeam = activeTeam || {
+    name: "Team",
+    icon: null,
+    iconColor: null,
+    imageUrl: null,
+  };
+
   return (
     <Select onValueChange={onChange} value={activeTeamId || ""}>
-      <SelectTrigger className="h-auto w-full cursor-pointer border-none px-3 py-2 transition-colors hover:bg-sidebar-accent">
+      <SelectTrigger className="h-auto w-full cursor-pointer border-none bg-sidebar px-3 py-2 text-foreground transition-colors hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary font-semibold text-primary-foreground text-xs">
-            {activeTeam?.name.charAt(0).toUpperCase() || "T"}
-          </div>
+          <TeamAvatar size="md" team={displayTeam} />
           <div className="min-w-0 flex-1 text-left">
-            <p className="truncate font-semibold text-sm">
-              {activeTeam?.name || "Select team"}
+            <p className="truncate font-semibold text-foreground text-sm">
+              {displayTeam.name || "Select team"}
             </p>
             <p className="truncate text-muted-foreground text-xs capitalize">
               {activeTeam?.role || "No team"}
@@ -349,10 +677,18 @@ export function TeamSelector({ collapsed }: TeamSelectorProps) {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamIcon, setNewTeamIcon] = useState("");
+  const [newTeamIconColor, setNewTeamIconColor] = useState(
+    DEFAULT_TEAM_ICON_COLOR
+  );
+  const [newTeamImageUrl, setNewTeamImageUrl] = useState("");
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
-  const [renaming, setRenaming] = useState(false);
+  const [settingsIcon, setSettingsIcon] = useState("");
+  const [settingsIconColor, setSettingsIconColor] = useState("");
+  const [settingsImageUrl, setSettingsImageUrl] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) || null;
@@ -412,6 +748,9 @@ export function TeamSelector({ collapsed }: TeamSelectorProps) {
 
   useEffect(() => {
     setRenameDraft(activeTeam?.name || "");
+    setSettingsIcon(activeTeam?.icon || "");
+    setSettingsIconColor(activeTeam?.iconColor || "");
+    setSettingsImageUrl(activeTeam?.imageUrl || "");
   }, [activeTeam]);
 
   const handleTeamChange = (teamId: string) => {
@@ -420,16 +759,29 @@ export function TeamSelector({ collapsed }: TeamSelectorProps) {
   };
 
   const handleCreateTeam = async () => {
-    if (!newTeamName.trim()) {
+    const trimmedName = newTeamName.trim();
+
+    if (!trimmedName) {
       toast.error("Enter a team name");
       return;
     }
 
     try {
       setCreating(true);
-      const created = await api.team.create(newTeamName.trim());
+      const created = await api.team.create({
+        name: trimmedName,
+        icon: newTeamIcon || null,
+        iconColor:
+          newTeamIcon && newTeamIconColor.trim()
+            ? newTeamIconColor.trim()
+            : null,
+        imageUrl: newTeamImageUrl.trim() || null,
+      });
       await loadTeams(created.id);
       setNewTeamName("");
+      setNewTeamIcon("");
+      setNewTeamIconColor(DEFAULT_TEAM_ICON_COLOR);
+      setNewTeamImageUrl("");
       setCreateDialogOpen(false);
       toast.success("Team created");
     } catch (error) {
@@ -442,6 +794,9 @@ export function TeamSelector({ collapsed }: TeamSelectorProps) {
 
   const handleOpenCreateDialog = useCallback(() => {
     setNewTeamName("");
+    setNewTeamIcon("");
+    setNewTeamIconColor(DEFAULT_TEAM_ICON_COLOR);
+    setNewTeamImageUrl("");
     setCreateDialogOpen(true);
   }, []);
 
@@ -457,26 +812,43 @@ export function TeamSelector({ collapsed }: TeamSelectorProps) {
     }
 
     setRenameDraft(activeTeam.name);
+    setSettingsIcon(activeTeam.icon || "");
+    setSettingsIconColor(activeTeam.iconColor || "");
+    setSettingsImageUrl(activeTeam.imageUrl || "");
     setSettingsOpen(true);
   }, [activeTeam, canManageTeam]);
 
-  const handleRenameTeam = async () => {
-    if (!(activeTeam?.id && renameDraft.trim())) {
+  const handleSaveTeamSettings = async () => {
+    if (!activeTeam?.id) {
+      return;
+    }
+
+    const trimmedName = renameDraft.trim();
+
+    if (!trimmedName) {
       toast.error("Enter a team name");
       return;
     }
 
     try {
-      setRenaming(true);
-      await api.team.update(activeTeam.id, renameDraft.trim());
+      setSavingSettings(true);
+      await api.team.update(activeTeam.id, {
+        name: trimmedName,
+        icon: settingsIcon || null,
+        iconColor:
+          settingsIcon && settingsIconColor.trim()
+            ? settingsIconColor.trim()
+            : null,
+        imageUrl: settingsImageUrl.trim() || null,
+      });
       await loadTeams(activeTeam.id);
       setSettingsOpen(false);
-      toast.success("Team name updated");
+      toast.success("Team updated");
     } catch (error) {
-      console.error("Failed to rename team:", error);
-      toast.error("Failed to rename team");
+      console.error("Failed to update team:", error);
+      toast.error("Failed to update team");
     } finally {
-      setRenaming(false);
+      setSavingSettings(false);
     }
   };
 
@@ -517,8 +889,14 @@ export function TeamSelector({ collapsed }: TeamSelectorProps) {
     <CreateTeamDialog
       creating={creating}
       inputId={collapsed ? "team-name" : "team-name-expanded"}
+      newTeamIcon={newTeamIcon}
+      newTeamIconColor={newTeamIconColor}
+      newTeamImageUrl={newTeamImageUrl}
       newTeamName={newTeamName}
       onCreate={handleCreateTeam}
+      onIconChange={setNewTeamIcon}
+      onIconColorChange={setNewTeamIconColor}
+      onImageUrlChange={setNewTeamImageUrl}
       onNameChange={setNewTeamName}
       onOpenChange={setCreateDialogOpen}
       open={createDialogOpen}
@@ -529,13 +907,19 @@ export function TeamSelector({ collapsed }: TeamSelectorProps) {
     <TeamSettingsModal
       activeTeam={activeTeam}
       deleting={deleting}
+      icon={settingsIcon}
+      iconColor={settingsIconColor}
+      imageUrl={settingsImageUrl}
       onDelete={handleDeleteTeam}
+      onIconChange={setSettingsIcon}
+      onIconColorChange={setSettingsIconColor}
+      onImageUrlChange={setSettingsImageUrl}
       onOpenChange={setSettingsOpen}
-      onRename={handleRenameTeam}
       onRenameChange={setRenameDraft}
+      onSave={handleSaveTeamSettings}
       open={settingsOpen}
       renameDraft={renameDraft}
-      renaming={renaming}
+      saving={savingSettings}
     />
   );
 

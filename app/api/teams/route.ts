@@ -55,8 +55,28 @@ export async function POST(request: Request) {
       typeof body.name === "string" && body.name.trim().length > 0
         ? body.name.trim()
         : "New Team";
+    const icon =
+      typeof body.icon === "string" && body.icon.trim().length > 0
+        ? body.icon.trim()
+        : null;
+    const iconColor =
+      typeof body.iconColor === "string" && body.iconColor.trim().length > 0
+        ? body.iconColor.trim()
+        : null;
+    const imageUrl =
+      typeof body.imageUrl === "string" && body.imageUrl.trim().length > 0
+        ? body.imageUrl.trim()
+        : null;
 
-    const { team, membership } = await createTeamForUser(session.user.id, name);
+    const { team, membership } = await createTeamForUser(
+      session.user.id,
+      name,
+      {
+        icon,
+        iconColor,
+        imageUrl,
+      }
+    );
 
     return NextResponse.json({
       ...team,

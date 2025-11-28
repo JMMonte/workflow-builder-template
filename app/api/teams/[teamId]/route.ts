@@ -4,6 +4,52 @@ import { db } from "@/lib/db";
 import { integrations, teamMembers, teams, workflows } from "@/lib/db/schema";
 import { requireTeamContext } from "@/lib/team-context";
 
+function normalizeOptionalString(value: unknown) {
+  return typeof value === "string" ? value.trim() : undefined;
+}
+
+function buildUpdateData(
+  body: unknown
+): { data: Partial<typeof teams.$inferInsert> } | { error: string } {
+  const parsed = (
+    typeof body === "object" && body !== null ? body : {}
+  ) as Record<string, unknown>;
+
+  const name = normalizeOptionalString(parsed.name);
+  const icon = normalizeOptionalString(parsed.icon);
+  const iconColor = normalizeOptionalString(parsed.iconColor);
+  const imageUrl = normalizeOptionalString(parsed.imageUrl);
+
+  const updateData: Partial<typeof teams.$inferInsert> = {};
+
+  if (name !== undefined) {
+    if (!name) {
+      return { error: "Team name is required" };
+    }
+    updateData.name = name;
+  }
+
+  if (icon !== undefined) {
+    updateData.icon = icon || null;
+  }
+
+  if (iconColor !== undefined) {
+    updateData.iconColor = iconColor || null;
+  }
+
+  if (imageUrl !== undefined) {
+    updateData.imageUrl = imageUrl || null;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "No updates provided" };
+  }
+
+  updateData.updatedAt = new Date();
+
+  return { data: updateData };
+}
+
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ teamId: string }> }
@@ -18,27 +64,21 @@ export async function PATCH(
 
     if (teamContext.membership.role !== "owner") {
       return NextResponse.json(
-        { error: "Only owners can rename the team" },
+        { error: "Only owners can update the team" },
         { status: 403 }
       );
     }
 
     const body = await request.json().catch(() => ({}));
-    const name =
-      typeof body.name === "string" && body.name.trim().length > 0
-        ? body.name.trim()
-        : null;
+    const updateResult = buildUpdateData(body);
 
-    if (!name) {
-      return NextResponse.json(
-        { error: "Team name is required" },
-        { status: 400 }
-      );
+    if ("error" in updateResult) {
+      return NextResponse.json({ error: updateResult.error }, { status: 400 });
     }
 
     const [updated] = await db
       .update(teams)
-      .set({ name, updatedAt: new Date() })
+      .set(updateResult.data)
       .where(eq(teams.id, teamId))
       .returning();
 

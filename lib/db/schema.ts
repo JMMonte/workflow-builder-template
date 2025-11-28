@@ -68,6 +68,9 @@ export const teams = pgTable("teams", {
     .primaryKey()
     .$defaultFn(() => generateId()),
   name: text("name").notNull(),
+  imageUrl: text("image_url"),
+  icon: text("icon"),
+  iconColor: text("icon_color"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
