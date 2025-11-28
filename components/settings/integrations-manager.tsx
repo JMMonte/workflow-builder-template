@@ -140,6 +140,18 @@ export function IntegrationsManager({
     loadIntegrations();
   }, [loadIntegrations]);
 
+  // Listen for team changes and reload integrations
+  useEffect(() => {
+    const handleTeamChange = () => {
+      loadIntegrations();
+    };
+
+    window.addEventListener("active-team-change", handleTeamChange);
+    return () => {
+      window.removeEventListener("active-team-change", handleTeamChange);
+    };
+  }, [loadIntegrations]);
+
   const handleDelete = async (id: string) => {
     try {
       await api.integration.delete(id);

@@ -3,7 +3,7 @@
 import { useAtom, useSetAtom } from "jotai";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ type WorkflowPageProps = {
 const WorkflowEditor = ({ params }: WorkflowPageProps) => {
   const { workflowId } = use(params);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [isGenerating, setIsGenerating] = useAtom(isGeneratingAtom);
   const [isExecuting, setIsExecuting] = useAtom(isExecutingAtom);
@@ -318,9 +319,13 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
       if (selectedNode) {
         setSelectedNodeId(selectedNode.id);
       }
+
+      return workflow;
     } catch (error) {
       console.error("Failed to load workflow:", error);
       toast.error("Failed to load workflow");
+      setWorkflowNotFound(true);
+      return null;
     }
   }, [
     workflowId,
@@ -595,6 +600,32 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [handleSaveShortcut, handleRunShortcut]);
+
+  // Listen for team changes and validate workflow access
+  useEffect(() => {
+    const handleTeamChange = async () => {
+      try {
+        // Try to reload the workflow with the new team
+        const workflow = await loadExistingWorkflow();
+
+        // If workflow is not found or doesn't belong to the new team, redirect to workflows page
+        if (!workflow) {
+          toast.error("This workflow is not available for the selected team");
+          router.push("/workflows");
+        }
+      } catch (error) {
+        // If there's an error loading, redirect to workflows page
+        console.error("Failed to reload workflow after team change:", error);
+        toast.error("This workflow is not available for the selected team");
+        router.push("/workflows");
+      }
+    };
+
+    window.addEventListener("active-team-change", handleTeamChange);
+    return () => {
+      window.removeEventListener("active-team-change", handleTeamChange);
+    };
+  }, [loadExistingWorkflow, router]);
 
   // Cleanup polling interval on unmount
   useEffect(

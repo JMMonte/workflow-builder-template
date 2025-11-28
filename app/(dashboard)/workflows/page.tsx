@@ -75,6 +75,18 @@ export default function WorkflowsPage() {
     loadWorkflows();
   }, [isPending, loadWorkflows, session?.user]);
 
+  // Listen for team changes and reload workflows
+  useEffect(() => {
+    const handleTeamChange = () => {
+      loadWorkflows();
+    };
+
+    window.addEventListener("active-team-change", handleTeamChange);
+    return () => {
+      window.removeEventListener("active-team-change", handleTeamChange);
+    };
+  }, [loadWorkflows]);
+
   const handleCreateWorkflow = async () => {
     try {
       setCreating(true);
