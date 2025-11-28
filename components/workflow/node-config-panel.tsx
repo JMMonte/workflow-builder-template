@@ -27,11 +27,7 @@ import { IconGrid } from "@/components/ui/icon-grid";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  getWorkflowIconColors,
-  WORKFLOW_ICON_OPTIONS,
-  WorkflowIconDisplay,
-} from "@/components/workflow/workflow-icon-options";
+import { WORKFLOW_ICON_OPTIONS } from "@/components/workflow/workflow-icon-options";
 import { api } from "@/lib/api-client";
 import { generateWorkflowCode } from "@/lib/workflow-codegen";
 import {
@@ -427,8 +423,6 @@ export const PanelInner = () => {
 
   // If no node is selected, show workspace properties and runs
   if (!selectedNode) {
-    const iconPreviewColors = getWorkflowIconColors(currentWorkflowIconColor);
-
     return (
       <>
         <Tabs
@@ -489,28 +483,13 @@ export const PanelInner = () => {
                 <Label className="ml-1" htmlFor="workflow-icon">
                   Icon
                 </Label>
-                <div className="space-y-3">
-                  <IconGrid
-                    id="workflow-icon"
-                    onChange={handleUpdateWorkspaceIcon}
-                    options={WORKFLOW_ICON_OPTIONS}
-                    value={currentWorkflowIcon}
-                  />
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-md border"
-                    style={{
-                      color: iconPreviewColors.color,
-                      backgroundColor: iconPreviewColors.backgroundColor,
-                    }}
-                    title="Icon preview"
-                  >
-                    <WorkflowIconDisplay
-                      className="size-5"
-                      color={currentWorkflowIconColor}
-                      value={currentWorkflowIcon}
-                    />
-                  </div>
-                </div>
+                <IconGrid
+                  color={currentWorkflowIconColor}
+                  id="workflow-icon"
+                  onChange={handleUpdateWorkspaceIcon}
+                  options={WORKFLOW_ICON_OPTIONS}
+                  value={currentWorkflowIcon}
+                />
               </div>
               <div className="space-y-2">
                 <Label className="ml-1" htmlFor="workflow-icon-color">

@@ -70,6 +70,7 @@ export function TeamBrandingFields({
         <div className="space-y-2">
           <Label htmlFor={iconInputId}>Team icon</Label>
           <IconGrid
+            color={resolvedIconColor}
             disabled={disabled}
             id={iconInputId}
             onChange={onIconChange}

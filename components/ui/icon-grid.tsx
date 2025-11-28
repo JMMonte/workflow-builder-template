@@ -10,6 +10,7 @@ type IconGridProps = {
   disabled?: boolean;
   className?: string;
   id?: string;
+  color?: string | null;
 };
 
 export function IconGrid({
@@ -19,11 +20,15 @@ export function IconGrid({
   disabled,
   className,
   id,
+  color,
 }: IconGridProps) {
+  const resolvedColor = color?.trim();
+
   return (
     <div className={cn("grid grid-cols-7 gap-2", className)} id={id}>
       {options.map((option) => {
         const isSelected = option.value === value;
+        const IconComponent = option.Icon;
 
         return (
           <button
@@ -38,7 +43,7 @@ export function IconGrid({
             onClick={() => onChange(option.value)}
             type="button"
           >
-            <option.Icon className="size-5" />
+            <IconComponent className="size-5" color={resolvedColor} />
             <span className="sr-only">{option.label}</span>
           </button>
         );
