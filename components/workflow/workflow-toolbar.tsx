@@ -80,7 +80,6 @@ import {
 } from "@/lib/workflow-store";
 import { Panel } from "../ai-elements/panel";
 import { WorkflowIcon } from "../ui/workflow-icon";
-import { UserMenu } from "../workflows/user-menu";
 import { PanelInner } from "./node-config-panel";
 
 type WorkflowToolbarProps = {
@@ -1199,9 +1198,6 @@ export const WorkflowToolbar = ({ workflowId }: WorkflowToolbarProps) => {
             state={state}
             workflowId={workflowId}
           />
-          <div className="flex items-center gap-2">
-            <UserMenu />
-          </div>
         </div>
       </div>
 

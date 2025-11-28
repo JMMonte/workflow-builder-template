@@ -23,7 +23,9 @@ export function LoginGate() {
   const shouldGate =
     pathname === "/" ||
     pathname === "/workflows" ||
-    pathname.startsWith("/workflows/");
+    pathname.startsWith("/workflows/") ||
+    pathname === "/integrations" ||
+    pathname === "/team";
 
   useEffect(() => {
     if (!shouldGate) {

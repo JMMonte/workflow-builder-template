@@ -125,13 +125,13 @@ export function IntegrationsManager({
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y">
           {integrations.map((integration) => {
             const isTestable = integration.type !== "custom";
 
             return (
               <div
-                className="flex items-center justify-between rounded-lg border p-4"
+                className="flex items-center justify-between gap-4 py-3"
                 key={integration.id}
               >
                 <div className="flex items-center gap-3">
