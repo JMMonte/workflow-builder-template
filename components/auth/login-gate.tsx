@@ -1,8 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { redirect, usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { AuthDialog } from "@/components/auth/dialog";
 import { signOut, useSession } from "@/lib/auth-client";
 
 const isAnonymousUser = (user?: {
@@ -44,5 +43,6 @@ export function LoginGate() {
     return null;
   }
 
-  return <AuthDialog defaultMode="signin" forceOpen />;
+  // Redirect to login page
+  redirect("/login");
 }

@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "Flowzipper | AI Workflow Automations for Teams",
   description:
     "Flowzipper is an app for managing AI workflow automations for teams with a collaborative visual builder.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon-dark.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: "/favicon.png",
+  },
 };
 
 export const viewport: Viewport = {

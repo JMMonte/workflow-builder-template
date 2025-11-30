@@ -1,12 +1,10 @@
 "use client";
 
 import { LogOut, Moon, Settings, Sun } from "lucide-react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import {
-  AuthDialog,
-  isSingleProviderSignInInitiated,
-} from "@/components/auth/dialog";
+import { isSingleProviderSignInInitiated } from "@/components/auth/dialog";
 import { SettingsDialog } from "@/components/settings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -127,11 +125,14 @@ export const UserMenu = ({ showUserDetails }: UserMenuProps) => {
   if (isAnonymous) {
     return (
       <div className="flex w-full">
-        <AuthDialog>
-          <Button className="w-full justify-center" size="sm" variant="default">
-            Sign In
-          </Button>
-        </AuthDialog>
+        <Button
+          asChild
+          className="w-full justify-center"
+          size="sm"
+          variant="default"
+        >
+          <Link href="/login">Sign In</Link>
+        </Button>
       </div>
     );
   }

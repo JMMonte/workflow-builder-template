@@ -1,8 +1,10 @@
 "use client";
 
+import { useAtomValue } from "jotai";
 import {
   ChevronLeft,
   ChevronRight,
+  Loader2,
   Menu,
   Plug,
   UsersRound,
@@ -12,6 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import { TeamSelector } from "@/components/navigation/team-selector";
+import { WorkflowRunIndicator } from "@/components/navigation/workflow-run-indicator";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -26,6 +29,7 @@ import { UserMenu } from "@/components/workflows/user-menu";
 import { TEAM_STORAGE_KEY } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { isExecutingAtom } from "@/lib/workflow-store";
 
 type NavItem = {
   label: string;
@@ -61,44 +65,91 @@ type NavLinksProps = {
   onNavigate?: () => void;
 };
 
+type NavLinkItemProps = {
+  collapsed?: boolean;
+  isActive: boolean;
+  isRunning: boolean;
+  item: NavItem;
+  onNavigate?: () => void;
+};
+
+function NavLinkItem({
+  collapsed,
+  isActive,
+  isRunning,
+  item,
+  onNavigate,
+}: NavLinkItemProps) {
+  const Icon = item.icon;
+
+  const linkContent = (
+    <Link
+      className={cn(
+        "group flex items-center gap-3 rounded-md px-3 py-2 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        collapsed ? "justify-center px-2" : "justify-start",
+        isActive
+          ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+          : "text-sidebar-foreground/80"
+      )}
+      href={item.href}
+      onClick={onNavigate}
+    >
+      <Icon className="size-4 shrink-0" />
+      {collapsed ? null : (
+        <>
+          <span className="flex-1 truncate">{item.label}</span>
+          {isRunning ? (
+            <span className="ml-auto flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 font-semibold text-[11px] text-emerald-700 dark:text-emerald-200">
+              <Loader2 className="size-3 animate-spin" />
+              Running
+            </span>
+          ) : null}
+        </>
+      )}
+    </Link>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0} key={item.href}>
+        <TooltipTrigger asChild>
+          <div className="relative">
+            {linkContent}
+            {isRunning ? (
+              <span className="pointer-events-none absolute top-2 right-2 flex size-2 rounded-full bg-emerald-500 shadow-sm ring-2 ring-background" />
+            ) : null}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <div className="relative" key={item.href}>
+      {linkContent}
+    </div>
+  );
+}
+
 function NavLinks({ activePath, collapsed, onNavigate }: NavLinksProps) {
+  const isExecuting = useAtomValue(isExecutingAtom);
+
   return (
     <div className="space-y-1">
       {NAV_ITEMS.map((item) => {
         const isActive =
           activePath === item.href || activePath.startsWith(`${item.href}/`);
-        const Icon = item.icon;
-
-        const linkContent = (
-          <Link
-            className={cn(
-              "group flex items-center gap-3 rounded-md px-3 py-2 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              collapsed ? "justify-center px-2" : "justify-start",
-              isActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                : "text-sidebar-foreground/80"
-            )}
-            href={item.href}
-            onClick={onNavigate}
-          >
-            <Icon className="size-4 shrink-0" />
-            {collapsed ? null : <span>{item.label}</span>}
-          </Link>
-        );
-
-        if (collapsed) {
-          return (
-            <Tooltip delayDuration={0} key={item.href}>
-              <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            </Tooltip>
-          );
-        }
 
         return (
-          <div className="relative" key={item.href}>
-            {linkContent}
-          </div>
+          <NavLinkItem
+            collapsed={collapsed}
+            isActive={isActive}
+            isRunning={isExecuting && item.href === "/workflows"}
+            item={item}
+            key={item.href}
+            onNavigate={onNavigate}
+          />
         );
       })}
     </div>
@@ -313,6 +364,7 @@ export function AppShell({ children }: AppShellProps) {
           onOpenChange={setMobileOpen}
           pathname={pathname}
         />
+        <WorkflowRunIndicator />
       </div>
     </TooltipProvider>
   );

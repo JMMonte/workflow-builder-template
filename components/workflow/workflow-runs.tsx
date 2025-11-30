@@ -482,6 +482,13 @@ export function WorkflowRuns({
     loadExecutions();
   }, [loadExecutions]);
 
+  useEffect(() => {
+    const hasRunningExecution = executions.some(
+      (execution) => execution.status === "running"
+    );
+    setIsExecuting(hasRunningExecution);
+  }, [executions, setIsExecuting]);
+
   // Helper function to map node IDs to labels
   const mapNodeLabels = useCallback(
     (

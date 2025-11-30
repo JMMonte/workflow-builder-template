@@ -283,24 +283,6 @@ export function WorkflowCanvas() {
     return { clientX, clientY };
   }, []);
 
-  const calculateMenuPosition = useCallback(
-    (event: MouseEvent | TouchEvent, clientX: number, clientY: number) => {
-      const reactFlowBounds = (event.target as Element)
-        .closest(".react-flow")
-        ?.getBoundingClientRect();
-
-      const adjustedX = reactFlowBounds
-        ? clientX - reactFlowBounds.left
-        : clientX;
-      const adjustedY = reactFlowBounds
-        ? clientY - reactFlowBounds.top
-        : clientY;
-
-      return { adjustedX, adjustedY };
-    },
-    []
-  );
-
   const onConnectEnd = useCallback(
     (event: MouseEvent | TouchEvent) => {
       if (!connectingNodeId.current) {
@@ -326,12 +308,6 @@ export function WorkflowCanvas() {
       const isHandle = target.closest(".react-flow__handle");
 
       if (!(isNode || isHandle)) {
-        const { adjustedX, adjustedY } = calculateMenuPosition(
-          event,
-          clientX,
-          clientY
-        );
-
         // Get the action template
         const actionTemplate = nodeTemplates.find((t) => t.type === "action");
         if (!actionTemplate) {
@@ -340,8 +316,8 @@ export function WorkflowCanvas() {
 
         // Get the position in the flow coordinate system
         const position = screenToFlowPosition({
-          x: adjustedX,
-          y: adjustedY,
+          x: clientX,
+          y: clientY,
         });
 
         // Center the node vertically at the cursor position
@@ -402,7 +378,6 @@ export function WorkflowCanvas() {
     },
     [
       getClientPosition,
-      calculateMenuPosition,
       screenToFlowPosition,
       addNode,
       edges,
