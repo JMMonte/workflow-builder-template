@@ -1,8 +1,9 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { CheckCircle2, CircleAlert, Pencil, Trash2 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +15,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   GridTable,
   type GridTableColumn,
@@ -56,6 +64,12 @@ type IntegrationRowProps = {
   onEdit: () => void;
   onDelete: () => void;
   testing: boolean;
+};
+
+type TestPreviewState = {
+  integrationName: string;
+  integrationType?: IntegrationType;
+  response: Awaited<ReturnType<typeof api.integration.testConnection>>;
 };
 
 function IntegrationRow({
@@ -117,6 +131,7 @@ export function IntegrationsManager({
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [testPreview, setTestPreview] = useState<TestPreviewState | null>(null);
 
   // Sync external dialog state
   useEffect(() => {
@@ -166,6 +181,10 @@ export function IntegrationsManager({
   };
 
   const handleTest = async (id: string) => {
+    const integration = integrations.find(
+      (currentIntegration) => currentIntegration.id === id
+    );
+
     try {
       setTestingId(id);
       const result = await api.integration.testConnection(id);
@@ -175,11 +194,22 @@ export function IntegrationsManager({
       } else {
         toast.error(result.message || "Connection test failed");
       }
+
+      setTestPreview({
+        integrationName: integration?.name ?? "Integration",
+        integrationType: integration?.type,
+        response: result,
+      });
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Connection test failed";
       console.error("Connection test failed:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Connection test failed"
-      );
+      toast.error(errorMessage);
+      setTestPreview({
+        integrationName: integration?.name ?? "Integration",
+        integrationType: integration?.type,
+        response: { status: "error", message: errorMessage },
+      });
     } finally {
       setTestingId(null);
     }
@@ -317,6 +347,74 @@ export function IntegrationsManager({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TestResponsePreview
+        onClose={() => setTestPreview(null)}
+        preview={testPreview}
+      />
     </div>
+  );
+}
+
+type TestResponsePreviewProps = {
+  preview: TestPreviewState | null;
+  onClose: () => void;
+};
+
+function TestResponsePreview({ preview, onClose }: TestResponsePreviewProps) {
+  if (!preview) {
+    return null;
+  }
+
+  const isSuccess = preview.response.status === "success";
+
+  return (
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+      open
+    >
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Test response</DialogTitle>
+          <DialogDescription>
+            {preview.integrationName}
+            {preview.integrationType
+              ? ` · ${INTEGRATION_TYPE_LABELS[preview.integrationType]}`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <Alert variant={isSuccess ? "default" : "destructive"}>
+            {isSuccess ? (
+              <CheckCircle2 className="mt-0.5 size-4 text-green-500" />
+            ) : (
+              <CircleAlert className="mt-0.5 size-4 text-destructive" />
+            )}
+            <AlertTitle className="capitalize">
+              {preview.response.status}
+            </AlertTitle>
+            <AlertDescription>
+              <p className="text-muted-foreground text-sm">
+                {preview.response.message || "No message returned"}
+              </p>
+            </AlertDescription>
+          </Alert>
+
+          <div className="rounded-md border bg-muted/40 p-3">
+            <p className="font-medium text-muted-foreground text-xs">
+              Raw response
+            </p>
+            <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed">
+              {JSON.stringify(preview.response, null, 2)}
+            </pre>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

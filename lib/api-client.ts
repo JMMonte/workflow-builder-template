@@ -104,6 +104,25 @@ type StreamState = {
   currentData: WorkflowData;
 };
 
+export type GatewayModelPricing = {
+  input?: number;
+  output?: number;
+  cachedInputTokens?: number;
+  cacheCreationInputTokens?: number;
+};
+
+export type GatewayModel = {
+  id: string;
+  name?: string;
+  description?: string;
+  modelType?: string;
+  pricing?: GatewayModelPricing;
+};
+
+export type GatewayModelsResponse = {
+  models: GatewayModel[];
+};
+
 type OperationHandler = (
   op: StreamMessage["operation"],
   state: StreamState
@@ -328,6 +347,14 @@ export const aiApi = {
       reader.releaseLock();
     }
   },
+  getAvailableModels: (integrationId?: string) =>
+    apiCall<GatewayModelsResponse>(
+      `/api/ai/models${
+        integrationId
+          ? `?integrationId=${encodeURIComponent(integrationId)}`
+          : ""
+      }`
+    ),
 };
 
 // Integration types

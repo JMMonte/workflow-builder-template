@@ -38,7 +38,7 @@ export function CollapsedTeamPicker({
   };
 
   const trigger = (
-    <SelectTrigger className="h-10 max-h-10 min-h-10 w-10 min-w-10 max-w-10 shrink-0 cursor-pointer border-none bg-sidebar p-0 text-foreground transition-colors hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent [&>span]:hidden">
+    <SelectTrigger className="h-10 max-h-10 min-h-10 w-10 min-w-10 max-w-10 shrink-0 cursor-pointer border-none bg-sidebar p-0 text-foreground transition-colors hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent">
       <TeamAvatar size="md" team={displayTeam} />
     </SelectTrigger>
   );

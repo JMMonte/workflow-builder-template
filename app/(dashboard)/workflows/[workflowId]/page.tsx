@@ -488,22 +488,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
 
     try {
       // Start the execution via API
-      const response = await fetch(
-        `/api/workflow/${currentWorkflowId}/execute`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ input: {} }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to execute workflow");
-      }
-
-      const result = await response.json();
+      const result = await api.workflow.execute(currentWorkflowId);
 
       // Select the new execution
       setSelectedExecutionId(result.executionId);

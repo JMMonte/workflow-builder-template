@@ -51,7 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { WorkflowIcon } from "@/components/ui/workflow-icon";
-import { api } from "@/lib/api-client";
+import { ApiError, api } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import {
   addNodeAtom,
@@ -137,19 +137,7 @@ async function executeTestWorkflow({
 
   try {
     // Start the execution via API
-    const response = await fetch(`/api/workflow/${workflowId}/execute`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ input: {} }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to execute workflow");
-    }
-
-    const result = await response.json();
+    const result = await api.workflow.execute(workflowId);
 
     // Select the new execution
     setSelectedExecutionId(result.executionId);
@@ -199,7 +187,7 @@ async function executeTestWorkflow({
   } catch (error) {
     console.error("Failed to execute workflow:", error);
     toast.error(
-      error instanceof Error ? error.message : "Failed to execute workflow"
+      error instanceof ApiError ? error.message : "Failed to execute workflow"
     );
     updateNodesStatus(nodes, updateNodeData, "error");
     setIsExecuting(false);
