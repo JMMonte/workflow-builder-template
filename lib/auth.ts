@@ -53,6 +53,47 @@ function getBaseURL() {
   return "http://localhost:3000";
 }
 
+function toOrigin(url: string | undefined) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getTrustedOrigins() {
+  const origins = new Set<string>();
+
+  const baseURL = getBaseURL();
+  const baseOrigin = toOrigin(baseURL) ?? baseURL;
+  origins.add(baseOrigin);
+
+  const configuredOrigins = [
+    process.env.BETTER_AUTH_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ];
+
+  for (const url of configuredOrigins) {
+    const origin = toOrigin(url);
+    if (origin) {
+      origins.add(origin);
+    }
+  }
+
+  if (process.env.VERCEL_URL) {
+    origins.add(`https://${process.env.VERCEL_URL}`);
+  }
+
+  origins.add("http://localhost:3000");
+  origins.add("https://localhost:3000");
+
+  return Array.from(origins);
+}
+
 // Build plugins array conditionally
 const plugins = [
   ...(process.env.VERCEL_CLIENT_ID
@@ -118,4 +159,5 @@ export const auth = betterAuth({
     },
   },
   plugins,
+  trustedOrigins: getTrustedOrigins(),
 });
