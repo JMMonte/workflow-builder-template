@@ -109,11 +109,11 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
     }
   };
 
-  const getFallbackAssistantMessage = useCallback(
+  const buildAssistantMessage = useCallback(
     (data: { assistantMessage?: string; description?: string; nodes?: unknown[]; edges?: unknown[] }) => {
-      const latestAssistant = conversationHistory.find(m => m.role === "assistant");
-      if (latestAssistant?.content?.trim()) {
-        return null;
+      const assistantMessage = data.assistantMessage?.trim();
+      if (assistantMessage) {
+        return assistantMessage;
       }
 
       const description = data.description?.trim();
@@ -128,14 +128,29 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         return `Workflow updated with ${nodeCount} step${nodeCount === 1 ? "" : "s"} and ${edgeCount} connection${edgeCount === 1 ? "" : "s"}.`;
       }
 
-      return "Workflow updated.";
+      return "";
     },
-    [conversationHistory]
+    []
   );
 
-  const addToHistory = useCallback((role: "user" | "assistant", content: string) => {
+  const upsertAssistantMessage = useCallback((content: string) => {
     if (!content.trim()) return;
-    setConversationHistory(prev => [...prev, { role, content }]);
+
+    setConversationHistory(prev => {
+      const last = prev[prev.length - 1];
+
+      if (last?.role === "assistant") {
+        if (last.content === content) {
+          return prev;
+        }
+
+        const next = [...prev];
+        next[next.length - 1] = { role: "assistant", content };
+        return next;
+      }
+
+      return [...prev, { role: "assistant", content }];
+    });
   }, []);
 
   const handleGenerate = useCallback(
@@ -191,23 +206,6 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
               type: "animated",
             }));
 
-            // Update assistant message in history incrementally
-            if (partialData.assistantMessage !== undefined) {
-              setConversationHistory(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  const next = [...prev];
-                  next[next.length - 1] = {
-                    role: "assistant",
-                    content: partialData.assistantMessage || "",
-                  };
-                  return next;
-                }
-
-                return [...prev, { role: "assistant", content: partialData.assistantMessage || "" }];
-              });
-            }
-
             // Validate: ensure only ONE trigger node exists
             const triggerNodes = (partialData.nodes || []).filter(
               (node) => node.data?.type === "trigger"
@@ -232,6 +230,11 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
               );
             }
 
+            const streamingMessage = buildAssistantMessage({
+              ...partialData,
+              edges: validEdges,
+            });
+
             // Update the canvas incrementally
             setNodes(partialData.nodes || []);
             setEdges(validEdges);
@@ -241,6 +244,9 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
             if (partialData.description !== undefined) {
               setCurrentWorkflowDescription(partialData.description ?? "");
             }
+            if (streamingMessage) {
+              upsertAssistantMessage(streamingMessage);
+            }
           },
           existingWorkflow
         );
@@ -249,21 +255,10 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         console.log("[AI Prompt] Nodes:", workflowData.nodes?.length || 0);
         console.log("[AI Prompt] Edges:", workflowData.edges?.length || 0);
 
-        const fallbackAssistantMessage = getFallbackAssistantMessage(workflowData);
-
         // Add final assistant message to history
-        const finalMessage = workflowData.assistantMessage || fallbackAssistantMessage;
+        const finalMessage = buildAssistantMessage(workflowData);
         if (finalMessage) {
-          setConversationHistory(prev => {
-            const last = prev[prev.length - 1];
-            if (last?.role === "assistant") {
-              const next = [...prev];
-              next[next.length - 1] = { role: "assistant", content: finalMessage };
-              return next;
-            }
-
-            return [...prev, { role: "assistant", content: finalMessage }];
-          });
+          upsertAssistantMessage(finalMessage);
         }
 
         // Use edges from workflow data with animated type
@@ -377,7 +372,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       } catch (error) {
         console.error("Failed to generate workflow:", error);
         const errorMessage = error instanceof Error ? error.message : "Failed to generate workflow";
-        addToHistory("assistant", errorMessage);
+        upsertAssistantMessage(errorMessage);
         toast.error("Failed to generate workflow");
       } finally {
         setIsGenerating(false);
@@ -400,7 +395,8 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       setCurrentWorkflowDescription,
       setSelectedNodeId,
       onWorkflowCreated,
-      addToHistory,
+      buildAssistantMessage,
+      upsertAssistantMessage,
       conversationHistory,
     ]
   );

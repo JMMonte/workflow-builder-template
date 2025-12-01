@@ -4,7 +4,11 @@
  */
 
 import type { WorkflowRun, WorkflowRunLog } from "./workflow-run";
-import type { WorkflowEdge, WorkflowNode } from "./workflow-store";
+import type {
+  WorkflowEdge,
+  WorkflowNode,
+  WorkflowNodeData,
+} from "./workflow-store";
 
 export const TEAM_STORAGE_KEY = "activeTeamId";
 
@@ -157,6 +161,139 @@ type OperationHandler = (
   state: StreamState
 ) => void;
 
+const JSON_STRING_CONFIG_KEYS = new Set([
+  "httpHeaders",
+  "httpBody",
+  "webhookMockRequest",
+  "webhookSchema",
+  "dbSchema",
+  "aiSchema",
+]);
+
+const STRING_CONFIG_KEYS = new Set(["dbQuery"]);
+
+function normalizeConfigValue(key: string, value: unknown): unknown {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (JSON_STRING_CONFIG_KEYS.has(key)) {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  }
+
+  if (STRING_CONFIG_KEYS.has(key)) {
+    return String(value);
+  }
+
+  return value;
+}
+
+function sanitizeConfig(
+  config?: Record<string, unknown>
+): Record<string, unknown> | undefined {
+  if (!config) {
+    return config;
+  }
+
+  let changed = false;
+  const next: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(config)) {
+    const normalized = normalizeConfigValue(key, value);
+    next[key] = normalized;
+    if (normalized !== value) {
+      changed = true;
+    }
+  }
+
+  return changed ? next : config;
+}
+
+function mergeConfigs(
+  existingConfig?: Record<string, unknown>,
+  updates?: unknown
+): Record<string, unknown> | undefined {
+  if (updates === undefined) {
+    return existingConfig;
+  }
+
+  if (!updates || typeof updates !== "object") {
+    return existingConfig;
+  }
+
+  const base =
+    existingConfig && typeof existingConfig === "object" ? existingConfig : {};
+
+  return {
+    ...base,
+    ...(updates as Record<string, unknown>),
+  };
+}
+
+function mergeNodeData(
+  existingData: WorkflowNodeData | undefined,
+  updates?: WorkflowNodeData
+): WorkflowNodeData | undefined {
+  if (!updates || typeof updates !== "object") {
+    return existingData;
+  }
+
+  const mergedConfig =
+    updates.config !== undefined
+      ? mergeConfigs(
+          existingData?.config as Record<string, unknown> | undefined,
+          updates.config
+        )
+      : existingData?.config;
+
+  const mergedData = {
+    ...existingData,
+    ...updates,
+    ...(updates.config !== undefined ? { config: mergedConfig } : {}),
+  };
+
+  const sanitizedConfig = sanitizeConfig(
+    mergedData.config as Record<string, unknown> | undefined
+  );
+
+  return sanitizedConfig === mergedData.config
+    ? mergedData
+    : { ...mergedData, config: sanitizedConfig };
+}
+
+function sanitizeNodeData(
+  data: WorkflowNodeData | undefined
+): WorkflowNodeData | undefined {
+  if (!data) {
+    return data;
+  }
+
+  const sanitizedConfig = sanitizeConfig(
+    data.config as Record<string, unknown> | undefined
+  );
+
+  if (sanitizedConfig === data.config) {
+    return data;
+  }
+
+  return { ...data, config: sanitizedConfig };
+}
+
+function sanitizeNode(node: WorkflowNode): WorkflowNode {
+  const sanitizedData = sanitizeNodeData(node.data);
+  return sanitizedData === node.data
+    ? node
+    : { ...node, data: sanitizedData ?? node.data };
+}
+
 function handleSetName(
   op: StreamMessage["operation"],
   state: StreamState
@@ -180,10 +317,8 @@ function handleAddNode(
   state: StreamState
 ): void {
   if (op?.node) {
-    state.currentData.nodes = [
-      ...state.currentData.nodes,
-      op.node as WorkflowNode,
-    ];
+    const node = sanitizeNode(op.node as WorkflowNode);
+    state.currentData.nodes = [...state.currentData.nodes, node];
   }
 }
 
@@ -231,12 +366,12 @@ function handleUpdateNode(
   if (op?.nodeId && op.updates) {
     state.currentData.nodes = state.currentData.nodes.map((n) => {
       if (n.id === op.nodeId) {
+        const updatesData = op.updates?.data as WorkflowNodeData | undefined;
+
         return {
           ...n,
           ...(op.updates?.position ? { position: op.updates.position } : {}),
-          ...(op.updates?.data
-            ? { data: { ...n.data, ...op.updates.data } }
-            : {}),
+          ...(updatesData ? { data: mergeNodeData(n.data, updatesData) } : {}),
         };
       }
       return n;

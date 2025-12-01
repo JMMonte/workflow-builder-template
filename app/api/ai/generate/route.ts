@@ -204,6 +204,8 @@ IMPORTANT: Output ONLY the operations needed to make the requested changes.
 - If removing nodes: output "removeNode" operations with the nodeId to remove
 - If removing edges: output "removeEdge" operations with the edgeId to remove
 - If changing name/description: output "setName"/"setDescription" only if changed
+- When changing details inside an existing card, use "updateNode" with the FULL data/config payload so required fields stay intact. Keep triggerType/actionType and all existing config keys unless the user explicitly says to remove them. For HTTP Request nodes include httpMethod, endpoint, httpHeaders, and httpBody. For Content Card nodes include cardType, cardPrompt, imageSourceType, and imageUrl/imageBase64 when applicable.
+- Preserve template variables like {{NodeLabel.field}} in all configs. Do NOT replace them with static text unless the user explicitly asks.
 - CRITICAL: New nodes MUST be connected with edges - always add edges after adding nodes
 - When connecting nodes, look at the node IDs in the current workflow list above
 - DO NOT output operations for existing nodes/edges unless specifically modifying them

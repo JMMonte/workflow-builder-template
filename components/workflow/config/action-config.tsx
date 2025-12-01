@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom, useAtomValue } from "jotai";
-import { Copy, Settings, StickyNote } from "lucide-react";
+import { Copy, Settings } from "lucide-react";
 import NextImage from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -791,6 +791,40 @@ function ContentCardFields({
     }
   };
 
+  const handleCardTypeChange = (value: string) => {
+    if (value === "text") {
+      setUploadedFileName("");
+      if (onUpdateConfigBatch) {
+        onUpdateConfigBatch({
+          cardType: "text",
+          imageBase64: "",
+          imageUrl: "",
+          imageSourceType: "url",
+          uploadedFileName: "",
+        });
+      } else {
+        onUpdateConfig("cardType", "text");
+        onUpdateConfig("imageBase64", "");
+        onUpdateConfig("imageUrl", "");
+        onUpdateConfig("imageSourceType", "url");
+        onUpdateConfig("uploadedFileName", "");
+      }
+      return;
+    }
+
+    const nextSourceType = (config?.imageSourceType as string) || "url";
+
+    if (onUpdateConfigBatch) {
+      onUpdateConfigBatch({
+        cardType: value,
+        imageSourceType: nextSourceType,
+      });
+    } else {
+      onUpdateConfig("cardType", value);
+      onUpdateConfig("imageSourceType", nextSourceType);
+    }
+  };
+
   const previewSrc = getContentCardPreviewSrc(config);
 
   // Get filename from config or state
@@ -805,7 +839,7 @@ function ContentCardFields({
         </Label>
         <Select
           disabled={disabled}
-          onValueChange={(value) => onUpdateConfig("cardType", value)}
+          onValueChange={handleCardTypeChange}
           value={cardType}
         >
           <SelectTrigger className="w-full" id="cardType">
@@ -826,7 +860,7 @@ function ContentCardFields({
             onUpdateConfig("cardPrompt", currentValue + template);
           }}
         >
-          Shared Prompt
+          Prompt
         </LabelWithVariablePicker>
         <TemplateBadgeTextarea
           disabled={disabled}
@@ -1124,9 +1158,8 @@ function SearchFields({
 
 // Action categories and their actions
 const ACTION_CATEGORIES = {
-  System: ["HTTP Request", "Database Query", "Condition"],
+  System: ["HTTP Request", "Database Query", "Condition", "Content Card"],
   "AI Gateway": ["Generate Text", "Generate Image"],
-  Content: ["Content Card"],
   Firecrawl: ["Scrape", "Search"],
   Linear: ["Create Ticket", "Find Issues"],
   Resend: ["Send Email"],
@@ -1225,12 +1258,6 @@ export function ActionConfig({
                 <div className="flex items-center gap-2">
                   <IntegrationIcon className="size-4" integration="vercel" />
                   <span>AI Gateway</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="Content">
-                <div className="flex items-center gap-2">
-                  <StickyNote className="size-4" />
-                  <span>Content</span>
                 </div>
               </SelectItem>
               <SelectItem value="Linear">

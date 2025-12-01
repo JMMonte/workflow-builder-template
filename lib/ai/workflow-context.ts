@@ -112,7 +112,7 @@ const ACTION_CONFIG_HINTS: Record<string, ActionConfigHint> = {
     example: {
       actionType: "Content Card",
       cardType: "text",
-      cardPrompt: "Shared prompt describing the content",
+      cardPrompt: "Prompt describing the content",
     },
   },
   Scrape: {
@@ -265,6 +265,12 @@ Node structure:
     "status": "idle"
   }
 }
+
+VARIABLES / PLACEHOLDERS:
+- Use template variables to reference outputs from previous nodes: {{NodeLabel.field}} (e.g., {{Webhook.body.email}}, {{HTTP Request.data.token}})
+- Keep existing template variables intact when updating nodes. Do NOT replace them with static sample values unless the user asks.
+- Any string field can include variables (headers, bodies, prompts, URLs, queries, titles, descriptions, etc.)
+- When connecting data between steps, prefer variables over hardcoding so workflows stay dynamic
 
 Triggers (set data.config.triggerType):
 ${triggerContext}

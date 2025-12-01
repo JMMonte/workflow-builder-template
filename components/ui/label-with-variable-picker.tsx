@@ -166,7 +166,7 @@ const getCommonFields = (node: WorkflowNode) => {
 
     if (cardType === "image") {
       return [
-        { field: "prompt", description: "Shared prompt text" },
+        { field: "prompt", description: "Prompt" },
         { field: "image", description: "Image data (URL or base64)" },
         { field: "url", description: "Image URL" },
         { field: "base64", description: "Base64 image data" },
@@ -174,7 +174,7 @@ const getCommonFields = (node: WorkflowNode) => {
     }
 
     return [
-      { field: "prompt", description: "Shared prompt text" },
+      { field: "prompt", description: "Prompt" },
       { field: "text", description: "Text content" },
     ];
   }

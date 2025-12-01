@@ -101,7 +101,7 @@ const actions: ActionType[] = [
     id: "Content Card",
     label: "Content Card",
     description: "Reusable card for shared text or image prompts",
-    category: "Content",
+    category: "System",
     icon: StickyNote,
   },
   {
