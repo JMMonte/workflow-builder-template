@@ -12,7 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TeamSelector } from "@/components/navigation/team-selector";
 import { WorkflowRunIndicator } from "@/components/navigation/workflow-run-indicator";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,13 @@ type NavItem = {
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
+
+const SIDEBAR_COLLAPSED_KEY = "app-sidebar-collapsed";
+const SIDEBAR_STORAGE_KEY = "app-sidebar-width";
+const SIDEBAR_COLLAPSED_WIDTH = 76;
+const SIDEBAR_DEFAULT_WIDTH = 260;
+const SIDEBAR_MIN_WIDTH = 220;
+const SIDEBAR_MAX_WIDTH = 360;
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -190,26 +197,36 @@ function MobileUserSection({ hasUserDetails }: MobileUserSectionProps) {
 }
 
 type DesktopSidebarProps = SidebarUserSectionProps & {
+  collapsedWidth: number;
+  isDragging: boolean;
   isWorkflowDetail: boolean;
+  onResizeStart: (event: React.MouseEvent<HTMLDivElement>) => void;
   onToggleCollapse: () => void;
   pathname: string;
+  width: number;
 };
 
 function DesktopSidebar({
   collapsed,
+  collapsedWidth,
   hasUserDetails,
+  isDragging,
   isWorkflowDetail,
+  onResizeStart,
   onToggleCollapse,
   pathname,
+  width,
 }: DesktopSidebarProps) {
+  const sidebarWidth = collapsed ? collapsedWidth : width;
+
   return (
     <aside
       className={cn(
         "relative hidden h-screen border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex",
-        collapsed ? "w-[76px]" : "w-64",
         isWorkflowDetail && "pointer-events-auto"
       )}
       data-sidebar="desktop"
+      style={{ width: sidebarWidth }}
     >
       <div className="flex w-full flex-col">
         <div className="px-2 py-3">
@@ -224,18 +241,47 @@ function DesktopSidebar({
           hasUserDetails={hasUserDetails}
         />
       </div>
-      <button
-        className="group absolute top-16 right-0 z-30 hidden h-10 w-4 translate-x-1/2 items-center justify-center rounded-md border bg-background/90 text-sidebar-foreground shadow-sm ring-1 ring-border transition hover:bg-muted md:flex"
-        onClick={onToggleCollapse}
-        type="button"
-      >
-        {collapsed ? (
-          <ChevronRight className="size-3" />
-        ) : (
-          <ChevronLeft className="size-3" />
-        )}
-        <span className="sr-only">Toggle sidebar</span>
-      </button>
+
+      {collapsed ? null : (
+        <>
+          {/* biome-ignore lint/a11y/useSemanticElements: custom resize handle */}
+          <div
+            aria-orientation="vertical"
+            aria-valuenow={Math.round(width)}
+            className="group absolute inset-y-0 right-0 z-30 w-3 cursor-col-resize"
+            onMouseDown={onResizeStart}
+            role="separator"
+            tabIndex={0}
+          >
+            <div className="absolute inset-y-0 right-0 w-1 bg-transparent transition-colors group-hover:bg-blue-500 group-active:bg-blue-600" />
+            {isDragging ? null : (
+              <button
+                className="-translate-y-1/2 absolute top-1/2 right-0 flex size-6 translate-x-1/2 items-center justify-center rounded-full border bg-background opacity-0 shadow-sm transition-opacity hover:bg-muted group-hover:opacity-100"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleCollapse();
+                }}
+                onMouseDown={(event) => event.stopPropagation()}
+                type="button"
+              >
+                <ChevronLeft className="size-4" />
+                <span className="sr-only">Collapse sidebar</span>
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {collapsed ? (
+        <button
+          className="-translate-y-1/2 -right-3 absolute top-1/2 z-30 flex size-6 items-center justify-center rounded-r-full border border-l-0 bg-background shadow-sm transition-colors hover:bg-muted"
+          onClick={onToggleCollapse}
+          type="button"
+        >
+          <ChevronRight className="size-4" />
+          <span className="sr-only">Expand sidebar</span>
+        </button>
+      ) : null}
     </aside>
   );
 }
@@ -276,11 +322,88 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState(false);
+  const isSidebarResizingRef = useRef(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const lastTeamId = useRef<string | null>(null);
   const { data: session } = useSession();
   const isWorkflowDetail = pathname.startsWith("/workflows/");
   const hasUserDetails = Boolean(session?.user?.name || session?.user?.email);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const storedWidth = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (storedWidth) {
+      const parsedWidth = Number.parseInt(storedWidth, 10);
+      if (!Number.isNaN(parsedWidth)) {
+        setSidebarWidth(
+          Math.min(
+            Math.min(SIDEBAR_MAX_WIDTH, window.innerWidth * 0.5),
+            Math.max(SIDEBAR_MIN_WIDTH, parsedWidth)
+          )
+        );
+      }
+    }
+    const storedCollapsed = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (storedCollapsed) {
+      setCollapsed(storedCollapsed === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  }, [collapsed]);
+
+  const handleSidebarResizeStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (collapsed) {
+        return;
+      }
+      event.preventDefault();
+      isSidebarResizingRef.current = true;
+      setIsDraggingSidebar(true);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!isSidebarResizingRef.current) {
+          return;
+        }
+        const maxWidth = Math.min(SIDEBAR_MAX_WIDTH, window.innerWidth * 0.5);
+        const newWidth = Math.min(
+          maxWidth,
+          Math.max(SIDEBAR_MIN_WIDTH, moveEvent.clientX)
+        );
+        setSidebarWidth(newWidth);
+      };
+
+      const handleMouseUp = () => {
+        isSidebarResizingRef.current = false;
+        setIsDraggingSidebar(false);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [collapsed]
+  );
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -330,10 +453,14 @@ export function AppShell({ children }: AppShellProps) {
       >
         <DesktopSidebar
           collapsed={collapsed}
+          collapsedWidth={SIDEBAR_COLLAPSED_WIDTH}
           hasUserDetails={hasUserDetails}
+          isDragging={isDraggingSidebar}
           isWorkflowDetail={isWorkflowDetail}
+          onResizeStart={handleSidebarResizeStart}
           onToggleCollapse={() => setCollapsed((prev) => !prev)}
           pathname={pathname}
+          width={sidebarWidth}
         />
 
         <div className="flex min-h-screen flex-1 flex-col overflow-hidden">
