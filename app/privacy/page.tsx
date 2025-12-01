@@ -10,8 +10,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 export const metadata: Metadata = {
-  title: "Privacy | Flowzipper",
-  description: "How Flowzipper handles, stores, and shares your data.",
+  title: "Privacy | Darkmatter Agents",
+  description: "How Darkmatter Agents handles, stores, and shares your data.",
 };
 
 const privacySections = [
@@ -57,9 +57,9 @@ export default function PrivacyPage() {
               Privacy Policy
             </CardTitle>
             <CardDescription>
-              A concise overview of how Flowzipper handles your information. For
-              deeper compliance needs, contact the team that manages this
-              workspace.
+              A concise overview of how Darkmatter Agents handles your
+              information. For deeper compliance needs, contact the team that
+              manages this workspace.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">

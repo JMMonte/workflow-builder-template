@@ -11,8 +11,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 export const metadata: Metadata = {
-  title: "Forgot password | Flowzipper",
-  description: "Options to regain access to your Flowzipper account.",
+  title: "Forgot password | Darkmatter Agents",
+  description: "Options to regain access to your Darkmatter Agents account.",
 };
 
 const recoverySteps = [

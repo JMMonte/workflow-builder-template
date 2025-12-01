@@ -63,17 +63,19 @@ const GoogleIcon = ({ className = "size-4" }: { className?: string }) => (
   </svg>
 );
 
+const APP_NAME = "Darkmatter Agents";
+
 const LogoIcon = () => (
   <div className="flex size-16 items-center justify-center">
     <Image
-      alt="Flowzipper"
+      alt={APP_NAME}
       className="h-16 w-16 dark:hidden"
       height={64}
       src="/favicon.png"
       width={64}
     />
     <Image
-      alt="Flowzipper"
+      alt={APP_NAME}
       className="hidden h-16 w-16 dark:block"
       height={64}
       src="/favicon-dark.png"
@@ -213,7 +215,7 @@ export default function LoginPage() {
           <div className="space-y-2 text-center">
             <h1 className="font-semibold text-2xl tracking-tight">
               {mode === "signin"
-                ? "Log in to Flowzipper"
+                ? `Log in to ${APP_NAME}`
                 : "Create your account"}
             </h1>
           </div>
@@ -225,7 +227,7 @@ export default function LoginPage() {
             Join <Highlighter color="#d97706">thousands of teams</Highlighter>{" "}
             building{" "}
             <Highlighter color="#2563eb">powerful AI workflows</Highlighter>{" "}
-            with Flowzipper
+            with {APP_NAME}
           </p>
           <AvatarCircles avatarUrls={avatarUrls} numPeople={1200} />
         </div>

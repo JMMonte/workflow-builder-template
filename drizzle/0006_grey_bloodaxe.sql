@@ -1,0 +1,1 @@
+ALTER TABLE "team_invites" ADD COLUMN "expires_at" timestamp DEFAULT now() NOT NULL;

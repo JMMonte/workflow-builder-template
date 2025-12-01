@@ -542,32 +542,11 @@ function GenerateTextFields({
   config,
   onUpdateConfig,
   disabled,
-  upstreamNodes,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
-  upstreamNodes: WorkflowNode[];
 }) {
-  const promptSource = (config?.aiPromptSource as string) || "none";
-  const textCards = upstreamNodes.filter(
-    (node) =>
-      node.data.type === "action" &&
-      node.data.config?.actionType === "Content Card"
-  );
-
-  const handlePromptSourceChange = (value: string) => {
-    if (value === "none") {
-      onUpdateConfig("aiPromptSource", "");
-      return;
-    }
-
-    onUpdateConfig("aiPromptSource", value);
-    const card = textCards.find((node) => node.id === value);
-    const nodeLabel = card?.data.label || "Content Card";
-    onUpdateConfig("aiPrompt", `{{@${value}:${nodeLabel}.prompt}}`);
-  };
-
   return (
     <>
       <div className="space-y-2">
@@ -597,28 +576,6 @@ function GenerateTextFields({
           selectId="aiModel"
           value={(config?.aiModel as string) || "meta/llama-4-scout"}
         />
-      </div>
-      <div className="space-y-2">
-        <Label className="ml-1" htmlFor="aiPromptSource">
-          Shared Prompt (optional)
-        </Label>
-        <Select
-          disabled={disabled}
-          onValueChange={handlePromptSourceChange}
-          value={promptSource}
-        >
-          <SelectTrigger className="w-full" id="aiPromptSource">
-            <SelectValue placeholder="Select a Content Card" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            {textCards.map((node) => (
-              <SelectItem key={node.id} value={node.id}>
-                {node.data.label || "Content Card"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <div className="space-y-2">
         <LabelWithVariablePicker
@@ -664,57 +621,13 @@ function GenerateImageFields({
   config,
   onUpdateConfig,
   disabled,
-  upstreamNodes,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
-  upstreamNodes: WorkflowNode[];
 }) {
-  const promptSource = (config?.imagePromptSource as string) || "none";
-
-  const textCards = upstreamNodes.filter(
-    (node) =>
-      node.data.type === "action" &&
-      node.data.config?.actionType === "Content Card"
-  );
-
-  const handlePromptSourceChange = (value: string) => {
-    if (value === "none") {
-      onUpdateConfig("imagePromptSource", "");
-      return;
-    }
-
-    onUpdateConfig("imagePromptSource", value);
-    const card = textCards.find((node) => node.id === value);
-    const nodeLabel = card?.data.label || "Content Card";
-    onUpdateConfig("imagePrompt", `{{@${value}:${nodeLabel}.prompt}}`);
-  };
-
   return (
     <>
-      <div className="space-y-2">
-        <Label className="ml-1" htmlFor="imagePromptSource">
-          Shared Prompt (optional)
-        </Label>
-        <Select
-          disabled={disabled}
-          onValueChange={handlePromptSourceChange}
-          value={promptSource}
-        >
-          <SelectTrigger className="w-full" id="imagePromptSource">
-            <SelectValue placeholder="Select a Content Card" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            {textCards.map((node) => (
-              <SelectItem key={node.id} value={node.id}>
-                {node.data.label || "Content Card"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
       <div className="space-y-2">
         <Label htmlFor="imageModel">Model</Label>
         <AiGatewayModelSelect
@@ -1432,7 +1345,6 @@ export function ActionConfig({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
-          upstreamNodes={upstreamNodes}
         />
       )}
 
@@ -1442,7 +1354,6 @@ export function ActionConfig({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
-          upstreamNodes={upstreamNodes}
         />
       )}
 

@@ -10,8 +10,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 export const metadata: Metadata = {
-  title: "Terms | Flowzipper",
-  description: "Terms of service for using the Flowzipper platform.",
+  title: "Terms | Darkmatter Agents",
+  description: "Terms of service for using the Darkmatter Agents platform.",
 };
 
 const termsSections = [
@@ -57,8 +57,8 @@ export default function TermsPage() {
               Terms of Service
             </CardTitle>
             <CardDescription>
-              The summary below explains how Flowzipper is intended to be used.
-              If you have questions, reach out before operating production
+              The summary below explains how Darkmatter Agents is intended to be
+              used. If you have questions, reach out before operating production
               workflows.
             </CardDescription>
           </CardHeader>

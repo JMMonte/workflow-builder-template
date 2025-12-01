@@ -1,5 +1,6 @@
 import { streamText } from "ai";
 import { NextResponse } from "next/server";
+import { buildWorkflowSystemPrompt } from "@/lib/ai/workflow-context";
 import { auth } from "@/lib/auth";
 
 // Simple type for operations
@@ -130,105 +131,6 @@ async function processOperationStream(
   );
 }
 
-const system = `You are a workflow automation expert. Generate a workflow based on the user's description.
-
-CRITICAL: Output your workflow as INDIVIDUAL OPERATIONS, one per line in JSONL format.
-Each line must be a complete, separate JSON object.
-
-Operations you can output:
-1. {"op": "setName", "name": "Workflow Name"}
-2. {"op": "setDescription", "description": "Brief description"}
-3. {"op": "addNode", "node": {COMPLETE_NODE_OBJECT}}
-4. {"op": "addEdge", "edge": {COMPLETE_EDGE_OBJECT}}
-5. {"op": "removeNode", "nodeId": "node-id-to-remove"}
-6. {"op": "removeEdge", "edgeId": "edge-id-to-remove"}
-7. {"op": "updateNode", "nodeId": "node-id", "updates": {"position": {"x": 100, "y": 200}}}
-
-IMPORTANT RULES:
-- Every workflow must have EXACTLY ONE trigger node
-- Output ONE operation per line
-- Each line must be complete, valid JSON
-- Start with setName and setDescription
-- Then add nodes one at a time
-- Finally add edges one at a time to CONNECT ALL NODES
-- CRITICAL: Every node (except the last) MUST be connected to at least one other node
-- To update node positions or properties, use updateNode operation
-- NEVER output explanatory text - ONLY JSON operations
-- Do NOT wrap in markdown code blocks
-- Do NOT add explanatory text
-
-Node structure:
-{
-  "id": "unique-id",
-  "type": "trigger" or "action",
-  "position": {"x": number, "y": number},
-  "data": {
-    "label": "Node Label",
-    "description": "Node description",
-    "type": "trigger" or "action",
-    "config": {...},
-    "status": "idle"
-  }
-}
-
-Trigger types:
-- Manual: {"triggerType": "Manual"}
-- Webhook: {"triggerType": "Webhook", "webhookPath": "/webhooks/name", ...}
-- Schedule: {"triggerType": "Schedule", "scheduleCron": "0 9 * * *", ...}
-
-Action types:
-- Send Email: {"actionType": "Send Email", "emailTo": "user@example.com", "emailSubject": "Subject", "emailBody": "Body"}
-- Send Slack Message: {"actionType": "Send Slack Message", "slackChannel": "#general", "slackMessage": "Message"}
-- Create Ticket: {"actionType": "Create Ticket", "ticketTitle": "Title", "ticketDescription": "Description", "ticketPriority": "2"}
-- Database Query: {"actionType": "Database Query", "dbQuery": "SELECT * FROM table", "dbTable": "table"}
-- HTTP Request: {"actionType": "HTTP Request", "httpMethod": "POST", "endpoint": "https://api.example.com", "httpHeaders": "{}", "httpBody": "{}"}
-- Generate Text: {"actionType": "Generate Text", "aiModel": "meta/llama-4-scout", "aiFormat": "text", "aiPrompt": "Your prompt here"}
-- Generate Image: {"actionType": "Generate Image", "imageModel": "google/imagen-4.0-generate", "imagePrompt": "Image description"}
-- Content Card: {"actionType": "Content Card", "cardType": "text", "cardPrompt": "Shared prompt", "imageSourceType": "url", "imageUrl": "https://example.com/image.png"}
-- Scrape: {"actionType": "Scrape", "url": "https://example.com"}
-- Search: {"actionType": "Search", "query": "search query", "limit": 10}
-- Condition: {"actionType": "Condition", "condition": "{{@nodeId:Label.field}} === 'value'"}
-
-CRITICAL ABOUT CONDITION NODES:
-- Condition nodes evaluate a boolean expression
-- When TRUE: ALL connected nodes execute
-- When FALSE: ALL connected nodes are SKIPPED
-- For if/else logic, CREATE MULTIPLE SEPARATE condition nodes (one per branch)
-- NEVER connect multiple different outcome paths to a single condition node
-- Each condition should check for ONE specific case
-
-Example: "if good send Slack, if bad create ticket" needs TWO conditions:
-{"op": "addNode", "node": {"id": "cond-good", "data": {"config": {"condition": "{{@rate:Rate.value}} === 'good'"}}}}
-{"op": "addNode", "node": {"id": "cond-bad", "data": {"config": {"condition": "{{@rate:Rate.value}} === 'bad'"}}}}
-{"op": "addEdge", "edge": {"source": "rate", "target": "cond-good"}}
-{"op": "addEdge", "edge": {"source": "rate", "target": "cond-bad"}}
-{"op": "addEdge", "edge": {"source": "cond-good", "target": "slack"}}
-{"op": "addEdge", "edge": {"source": "cond-bad", "target": "ticket"}}
-
-Edge structure:
-{
-  "id": "edge-id",
-  "source": "source-node-id",
-  "target": "target-node-id",
-  "type": "default"
-}
-
-WORKFLOW FLOW:
-- Trigger connects to first action
-- Actions connect in sequence or to multiple branches
-- ALWAYS create edges to connect the workflow flow
-- For linear workflows: trigger -> action1 -> action2 -> etc
-- For branching (conditions): one source can connect to multiple targets
-
-Example output:
-{"op": "setName", "name": "Contact Form Workflow"}
-{"op": "setDescription", "description": "Processes contact form submissions"}
-{"op": "addNode", "node": {"id": "trigger-1", "type": "trigger", "position": {"x": 100, "y": 200}, "data": {"label": "Contact Form", "type": "trigger", "config": {"triggerType": "Manual"}, "status": "idle"}}}
-{"op": "addNode", "node": {"id": "send-email", "type": "action", "position": {"x": 400, "y": 200}, "data": {"label": "Send Email", "type": "action", "config": {"actionType": "Send Email", "emailTo": "admin@example.com", "emailSubject": "New Contact", "emailBody": "New contact form submission"}, "status": "idle"}}}
-{"op": "addEdge", "edge": {"id": "e1", "source": "trigger-1", "target": "send-email", "type": "default"}}
-
-REMEMBER: After adding all nodes, you MUST add edges to connect them! Every node should be reachable from the trigger.`;
-
 export async function POST(request: Request) {
   try {
     const session = await auth.api.getSession({
@@ -308,7 +210,7 @@ Example: If user says "connect node A to node B", output:
 
     const result = streamText({
       model: "openai/gpt-5.1-instant",
-      system,
+      system: buildWorkflowSystemPrompt(),
       prompt: userPrompt,
     });
 

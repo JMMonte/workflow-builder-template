@@ -3,6 +3,7 @@ import postgres from "postgres";
 import {
   accounts,
   sessions,
+  teamInvites,
   teamMembers,
   teams,
   users,
@@ -25,6 +26,7 @@ const schema = {
   workflowExecutions,
   workflowExecutionLogs,
   workflowExecutionsRelations,
+  teamInvites,
 };
 
 const connectionString =

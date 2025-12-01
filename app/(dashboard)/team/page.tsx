@@ -38,6 +38,7 @@ import {
   TEAM_STORAGE_KEY,
   type Team,
   type TeamMember,
+  type TeamMemberOrInvite,
 } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -51,7 +52,7 @@ function RoleBadge({ teamRole }: { teamRole: TeamMember["role"] }) {
 }
 
 const MEMBER_GRID_TEMPLATE =
-  "grid-cols-[minmax(150px,1fr)_minmax(200px,2fr)_100px_80px]";
+  "grid-cols-[minmax(150px,1fr)_minmax(220px,2fr)_minmax(140px,0.8fr)_100px]";
 
 const MEMBER_COLUMNS: GridTableColumn[] = [
   { id: "name", label: "Name" },
@@ -61,18 +62,69 @@ const MEMBER_COLUMNS: GridTableColumn[] = [
 ];
 
 type MemberRowProps = {
-  member: TeamMember;
+  entry: TeamMemberOrInvite;
   canManage: boolean;
   currentUserId?: string;
   onRemove: (userId: string) => void;
+  onReinvite: (email: string) => void;
+  reinvitingEmail?: string | null;
 };
 
 function MemberRow({
-  member,
+  entry,
   canManage,
   currentUserId,
   onRemove,
+  onReinvite,
+  reinvitingEmail,
 }: MemberRowProps) {
+  if (entry.type === "invite") {
+    const isExpired = entry.status === "expired";
+    const statusLabel = isExpired ? "Invitation expired" : "Invitation sent";
+
+    return (
+      <GridTableRow className="items-center" template={MEMBER_GRID_TEMPLATE}>
+        <div className="truncate">
+          <p className="truncate font-medium text-sm">Pending invite</p>
+        </div>
+        <div className="truncate">
+          <p className="truncate text-muted-foreground text-sm">
+            {entry.email}
+          </p>
+        </div>
+        <div className="flex">
+          <span
+            className={cn(
+              "inline-flex min-w-[130px] justify-center rounded-md border px-2 py-1 text-xs",
+              isExpired
+                ? "border-destructive/40 text-destructive"
+                : "border-primary/40 text-primary"
+            )}
+          >
+            {statusLabel}
+          </span>
+        </div>
+        <div className="flex justify-end">
+          {canManage ? (
+            <Button
+              disabled={reinvitingEmail === entry.email}
+              onClick={() => onReinvite(entry.email)}
+              size="sm"
+              variant="outline"
+            >
+              {reinvitingEmail === entry.email ? (
+                <Spinner className="mr-2 size-4" />
+              ) : null}
+              Reinvite
+            </Button>
+          ) : null}
+        </div>
+      </GridTableRow>
+    );
+  }
+
+  const member = entry;
+
   return (
     <GridTableRow className="items-center" template={MEMBER_GRID_TEMPLATE}>
       <div className="truncate">
@@ -113,11 +165,12 @@ export default function TeamManagementPage() {
   const { data: session, isPending } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [members, setMembers] = useState<TeamMemberOrInvite[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [reinvitingEmail, setReinvitingEmail] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const currentUserId = session?.user?.id ?? null;
   const hasLoadedInitialData = useRef(false);
@@ -277,9 +330,11 @@ export default function TeamManagementPage() {
 
     try {
       setInviting(true);
-      await api.team.addMember(activeTeamId, inviteEmail.trim());
+      const result = await api.team.addMember(activeTeamId, inviteEmail.trim());
       await loadMembers(activeTeamId);
-      toast.success("Member invited");
+      toast.success(
+        result.status === "invited" ? "Invite email sent" : "Member invited"
+      );
       setInviteEmail("");
       setInviteDialogOpen(false);
     } catch (error) {
@@ -289,6 +344,27 @@ export default function TeamManagementPage() {
       );
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleReinvite = async (email: string) => {
+    if (!activeTeamId) {
+      toast.error("Select a team first");
+      return;
+    }
+
+    try {
+      setReinvitingEmail(email);
+      const result = await api.team.addMember(activeTeamId, email);
+      await loadMembers(activeTeamId);
+      toast.success(
+        result.status === "invited" ? "Invite email sent" : "Member invited"
+      );
+    } catch (error) {
+      console.error("Failed to resend invite:", error);
+      toast.error("Failed to resend invite");
+    } finally {
+      setReinvitingEmail(null);
     }
   };
 
@@ -364,9 +440,11 @@ export default function TeamManagementPage() {
           <MemberRow
             canManage={canManageTeam}
             currentUserId={session?.user?.id}
+            entry={member}
             key={member.id}
-            member={member}
+            onReinvite={handleReinvite}
             onRemove={handleRemoveMember}
+            reinvitingEmail={reinvitingEmail}
           />
         ))}
       </GridTable>

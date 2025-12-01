@@ -222,7 +222,8 @@ function DesktopSidebar({
   return (
     <aside
       className={cn(
-        "relative hidden h-screen border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex",
+        "relative hidden h-screen border-r bg-sidebar text-sidebar-foreground md:flex",
+        !isDragging && "transition-[width] duration-200",
         isWorkflowDetail && "pointer-events-auto"
       )}
       data-sidebar="desktop"
@@ -274,7 +275,7 @@ function DesktopSidebar({
 
       {collapsed ? (
         <button
-          className="-translate-y-1/2 -right-3 absolute top-1/2 z-30 flex size-6 items-center justify-center rounded-r-full border border-l-0 bg-background shadow-sm transition-colors hover:bg-muted"
+          className="-translate-y-1/2 -right-3 absolute top-1/2 z-30 flex size-6 items-center justify-center rounded-full border bg-background shadow-sm transition-colors hover:bg-muted"
           onClick={onToggleCollapse}
           type="button"
         >

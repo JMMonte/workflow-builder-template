@@ -211,6 +211,27 @@ export const workflowExecutionsRelations = relations(
   })
 );
 
+export const teamInvites = pgTable("team_invites", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => generateId()),
+  teamId: text("team_id")
+    .notNull()
+    .references(() => teams.id),
+  invitedBy: text("invited_by")
+    .notNull()
+    .references(() => users.id),
+  email: text("email").notNull(),
+  status: text("status")
+    .notNull()
+    .$type<"pending" | "accepted" | "cancelled" | "expired">()
+    .default("pending"),
+  acceptedUserId: text("accepted_user_id").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Workflow = typeof workflows.$inferSelect;

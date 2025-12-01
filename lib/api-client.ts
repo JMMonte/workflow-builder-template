@@ -454,6 +454,36 @@ export type TeamMember = {
   createdAt: string;
 };
 
+export type TeamMemberRow = TeamMember & { type: "member" };
+
+export type TeamInvite = {
+  id: string;
+  teamId: string;
+  email: string;
+  status: "pending" | "accepted" | "cancelled" | "expired";
+  invitedBy: string;
+  acceptedUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+};
+
+export type InviteDetails = TeamInvite & { teamName: string };
+export type AcceptInviteResponse = {
+  status: "accepted" | "already-member";
+  teamId: string;
+  teamName: string;
+  email: string;
+};
+
+export type TeamInviteRow = TeamInvite & { type: "invite" };
+
+export type TeamMemberOrInvite = TeamMemberRow | TeamInviteRow;
+
+export type AddTeamMemberResponse =
+  | { status: "member"; member: TeamMember }
+  | { status: "invited"; invite: TeamInvite };
+
 // Integration API
 export const integrationApi = {
   // List all integrations
@@ -516,9 +546,9 @@ export const teamApi = {
       method: "DELETE",
     }),
   members: (teamId: string) =>
-    apiCall<TeamMember[]>(`/api/teams/${teamId}/members`),
+    apiCall<TeamMemberOrInvite[]>(`/api/teams/${teamId}/members`),
   addMember: (teamId: string, email: string) =>
-    apiCall<TeamMember>(`/api/teams/${teamId}/members`, {
+    apiCall<AddTeamMemberResponse>(`/api/teams/${teamId}/members`, {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
@@ -552,6 +582,15 @@ export const teamApi = {
     }
     return null;
   },
+};
+
+// Invite API
+export const inviteApi = {
+  get: (inviteId: string) => apiCall<InviteDetails>(`/api/invites/${inviteId}`),
+  accept: (inviteId: string) =>
+    apiCall<AcceptInviteResponse>(`/api/invites/${inviteId}`, {
+      method: "POST",
+    }),
 };
 
 // User API
@@ -743,6 +782,7 @@ export const workflowApi = {
 export const api = {
   ai: aiApi,
   integration: integrationApi,
+  invite: inviteApi,
   team: teamApi,
   user: userApi,
   workflow: workflowApi,

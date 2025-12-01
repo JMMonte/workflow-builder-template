@@ -1,0 +1,1 @@
+ALTER TABLE "team_invites" ALTER COLUMN "expires_at" DROP DEFAULT;

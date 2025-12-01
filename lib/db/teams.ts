@@ -5,6 +5,7 @@ import { db } from "./index";
 import {
   type Team,
   type TeamMember,
+  teamInvites,
   teamMembers,
   teams,
   users,
@@ -18,6 +19,11 @@ export type TeamMemberWithUser = TeamMember & {
     name: string | null;
     email: string | null;
   };
+};
+
+export type AddTeamMemberResult = {
+  member: TeamMemberWithUser;
+  created: boolean;
 };
 
 /**
@@ -170,9 +176,11 @@ export async function addTeamMemberByEmail(
   teamId: string,
   email: string,
   role: "owner" | "member" = "member"
-): Promise<TeamMemberWithUser> {
+): Promise<AddTeamMemberResult> {
+  const normalizedEmail = email.toLowerCase().trim();
+
   const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
+    where: eq(users.email, normalizedEmail),
   });
 
   if (!user) {
@@ -186,12 +194,15 @@ export async function addTeamMemberByEmail(
 
   if (existingMembership) {
     return {
-      ...existingMembership,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+      member: {
+        ...existingMembership,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
       },
+      created: false,
     };
   }
 
@@ -204,13 +215,32 @@ export async function addTeamMemberByEmail(
     })
     .returning();
 
+  // Mark any pending invites for this email as accepted
+  await db
+    .update(teamInvites)
+    .set({
+      status: "accepted",
+      acceptedUserId: user.id,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(teamInvites.teamId, teamId),
+        eq(teamInvites.email, normalizedEmail),
+        eq(teamInvites.status, "pending")
+      )
+    );
+
   return {
-    ...membership,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
+    member: {
+      ...membership,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
     },
+    created: true,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,8 @@ type AuthDialogProps = {
   children?: ReactNode;
   forceOpen?: boolean;
   defaultMode?: "signin" | "signup";
+  initialMode?: "signin" | "signup";
+  initialEmail?: string;
   onOpenChange?: (open: boolean) => void;
 };
 
@@ -628,18 +630,40 @@ export const AuthDialog = ({
   children,
   forceOpen,
   defaultMode = "signin",
+  initialMode,
+  initialEmail,
   onOpenChange,
 }: AuthDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"signin" | "signup">(defaultMode);
+  const [mode, setMode] = useState<"signin" | "signup">(
+    initialMode ?? defaultMode
+  );
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<
     "github" | "google" | "vercel" | null
   >(null);
+
+  useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+    }
+  }, [initialMode]);
+
+  useEffect(() => {
+    if (initialEmail) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
+
+  useEffect(() => {
+    if (forceOpen !== undefined) {
+      setOpen(forceOpen);
+    }
+  }, [forceOpen]);
 
   const enabledProviders = getEnabledAuthProviders();
   const singleProvider = getSingleProvider();

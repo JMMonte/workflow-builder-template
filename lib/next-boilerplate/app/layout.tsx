@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Flowzipper | AI Workflow Automations for Teams",
+  title: "Darkmatter Agents | AI Workflow Automations for Teams",
   description:
-    "Flowzipper is an app for managing AI workflow automations for teams with a collaborative visual builder.",
+    "Darkmatter Agents is an app for managing AI workflow automations for teams with a collaborative visual builder.",
 };
 
 export default function RootLayout({

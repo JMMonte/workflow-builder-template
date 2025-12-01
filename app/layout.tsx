@@ -14,9 +14,9 @@ import { mono, sans } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Flowzipper | AI Workflow Automations for Teams",
+  title: "Darkmatter Agents | AI Workflow Automations for Teams",
   description:
-    "Flowzipper is an app for managing AI workflow automations for teams with a collaborative visual builder.",
+    "Darkmatter Agents is an app for managing AI workflow automations for teams with a collaborative visual builder.",
   icons: {
     icon: [
       { url: "/favicon.png", media: "(prefers-color-scheme: light)" },
@@ -52,9 +52,7 @@ const RootLayout = ({ children }: RootLayoutProps) => (
             <ReactFlowProvider>
               <PersistentCanvas />
               <LoginGate />
-              <div className="pointer-events-none relative z-10">
-                {children}
-              </div>
+              <div className="relative z-10">{children}</div>
             </ReactFlowProvider>
             <Toaster />
           </AuthProvider>
