@@ -469,7 +469,7 @@ export function AppShell({ children }: AppShellProps) {
             className={cn(
               isWorkflowDetail
                 ? "pointer-events-none fixed inset-0 bg-transparent"
-                : "flex-1 overflow-y-auto px-4 py-6 md:px-8 pointer-events-auto"
+                : "pointer-events-auto flex-1 overflow-y-auto px-4 py-6 md:px-8"
             )}
           >
             <Button

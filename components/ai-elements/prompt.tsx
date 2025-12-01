@@ -1,11 +1,12 @@
 "use client";
 
 import { useAtom, useAtomValue } from "jotai";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Eraser } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/lib/api-client";
 import {
   currentWorkflowIdAtom,
@@ -22,13 +23,21 @@ type AIPromptProps = {
   onWorkflowCreated?: (workflowId: string) => void;
 };
 
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
   const [isGenerating, setIsGenerating] = useAtom(isGeneratingAtom);
   const [prompt, setPrompt] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
+  const [showHistory, setShowHistory] = useState(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
   const nodes = useAtomValue(nodesAtom);
   const [edges, setEdges] = useAtom(edgesAtom);
   const [_nodes, setNodes] = useAtom(nodesAtom);
@@ -42,6 +51,10 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
   // Filter out placeholder "add" nodes to get real nodes
   const realNodes = nodes.filter((node) => node.type !== "add");
   const hasNodes = realNodes.length > 0;
+  const hasHistory = conversationHistory.length > 0;
+  const hasVisibleHistory = hasHistory && showHistory;
+  const shouldShowFullWidth = isExpanded || hasVisibleHistory;
+  const canResetConversation = hasHistory && isFocused && showHistory;
 
   // Focus input when Cmd/Ctrl + K is pressed
   useEffect(() => {
@@ -58,25 +71,88 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
     };
   }, []);
 
+  // Hide chat history when clicking outside the prompt container
+  useEffect(() => {
+    const handlePointerDownCapture = (event: PointerEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setShowHistory(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDownCapture, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDownCapture, true);
+    };
+  }, []);
+
   const handleFocus = () => {
     setIsExpanded(true);
     setIsFocused(true);
+    setShowHistory(true);
   };
+
+  // Keep latest messages visible when history is shown
+  useEffect(() => {
+    if (!showHistory) return;
+    const el = historyScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [conversationHistory, showHistory]);
 
   const handleBlur = () => {
     setIsFocused(false);
+    setShowHistory(false);
     if (!prompt.trim()) {
       setIsExpanded(false);
     }
   };
 
+  const getFallbackAssistantMessage = useCallback(
+    (data: { assistantMessage?: string; description?: string; nodes?: unknown[]; edges?: unknown[] }) => {
+      const latestAssistant = conversationHistory.find(m => m.role === "assistant");
+      if (latestAssistant?.content?.trim()) {
+        return null;
+      }
+
+      const description = data.description?.trim();
+      if (description) {
+        return description;
+      }
+
+      const nodeCount = data.nodes?.length ?? 0;
+      const edgeCount = data.edges?.length ?? 0;
+
+      if (nodeCount > 0 || edgeCount > 0) {
+        return `Workflow updated with ${nodeCount} step${nodeCount === 1 ? "" : "s"} and ${edgeCount} connection${edgeCount === 1 ? "" : "s"}.`;
+      }
+
+      return "Workflow updated.";
+    },
+    [conversationHistory]
+  );
+
+  const addToHistory = useCallback((role: "user" | "assistant", content: string) => {
+    if (!content.trim()) return;
+    setConversationHistory(prev => [...prev, { role, content }]);
+  }, []);
+
   const handleGenerate = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      
+
       if (!prompt.trim() || isGenerating) {
         return;
       }
+
+      // Add user message to history and include it in context
+      const userMessage = prompt.trim();
+      const updatedHistory: Message[] = [
+        ...conversationHistory,
+        { role: "user", content: userMessage },
+      ];
+      setConversationHistory(updatedHistory);
 
       setIsGenerating(true);
 
@@ -106,13 +182,31 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         
         // Use streaming API with incremental updates
         const workflowData = await api.ai.generateStream(
-          prompt,
+          userMessage,
+          updatedHistory,
           (partialData) => {
             // Update UI incrementally with animated edges
             const edgesWithAnimatedType = (partialData.edges || []).map((edge) => ({
               ...edge,
               type: "animated",
             }));
+
+            // Update assistant message in history incrementally
+            if (partialData.assistantMessage !== undefined) {
+              setConversationHistory(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  const next = [...prev];
+                  next[next.length - 1] = {
+                    role: "assistant",
+                    content: partialData.assistantMessage || "",
+                  };
+                  return next;
+                }
+
+                return [...prev, { role: "assistant", content: partialData.assistantMessage || "" }];
+              });
+            }
 
             // Validate: ensure only ONE trigger node exists
             const triggerNodes = (partialData.nodes || []).filter(
@@ -150,10 +244,27 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
           },
           existingWorkflow
         );
-        
+
         console.log("[AI Prompt] Received final workflow data");
         console.log("[AI Prompt] Nodes:", workflowData.nodes?.length || 0);
         console.log("[AI Prompt] Edges:", workflowData.edges?.length || 0);
+
+        const fallbackAssistantMessage = getFallbackAssistantMessage(workflowData);
+
+        // Add final assistant message to history
+        const finalMessage = workflowData.assistantMessage || fallbackAssistantMessage;
+        if (finalMessage) {
+          setConversationHistory(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") {
+              const next = [...prev];
+              next[next.length - 1] = { role: "assistant", content: finalMessage };
+              return next;
+            }
+
+            return [...prev, { role: "assistant", content: finalMessage }];
+          });
+        }
 
         // Use edges from workflow data with animated type
         const finalEdges = (workflowData.edges || []).map((edge) => ({
@@ -265,6 +376,8 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
         inputRef.current?.blur();
       } catch (error) {
         console.error("Failed to generate workflow:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to generate workflow";
+        addToHistory("assistant", errorMessage);
         toast.error("Failed to generate workflow");
       } finally {
         setIsGenerating(false);
@@ -287,73 +400,130 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       setCurrentWorkflowDescription,
       setSelectedNodeId,
       onWorkflowCreated,
+      addToHistory,
+      conversationHistory,
     ]
   );
 
   return (
     <>
       {/* Always visible prompt input */}
-      <div 
+      <div
         ref={containerRef}
-        className="pointer-events-auto absolute bottom-4 left-1/2 z-10 -translate-x-1/2 px-4"
+        className="pointer-events-auto absolute bottom-4 left-1/2 z-10 -translate-x-1/2 px-4 max-h-[70vh]"
         style={{
-          width: isExpanded ? "min(100%, 42rem)" : "20rem",
+          width: shouldShowFullWidth ? "min(100%, 42rem)" : "20rem",
           transition: "width 150ms ease-out",
         }}
+        onClick={() => setShowHistory(true)}
       >
-        <form
-          className="relative flex items-center gap-2 rounded-lg border bg-background px-3 py-2 shadow-lg"
-          onSubmit={handleGenerate}
-        >
-          {isGenerating && prompt ? (
-            <Shimmer className="flex-1 text-sm whitespace-pre-wrap" duration={2}>
-              {prompt}
-            </Shimmer>
-          ) : (
-            <textarea
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
-              disabled={isGenerating}
-              onBlur={handleBlur}
-              onChange={(e) => {
-                setPrompt(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              onFocus={handleFocus}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleGenerate(e as any);
-                }
-              }}
-              placeholder={isFocused ? "Describe your workflow with natural language..." : "Ask AI..."}
-              ref={inputRef}
-              rows={1}
-              value={prompt}
-            />
+        <div className="space-y-3">
+          {hasVisibleHistory && (
+            <div className="relative h-[320px] max-h-[50vh] overflow-hidden">
+              <div
+                ref={historyScrollRef}
+                className="flex h-full flex-col justify-end gap-2 overflow-y-auto pr-1 pb-2 pt-4"
+                style={{
+                  maskImage: "linear-gradient(to bottom, transparent 0px, black 64px, black 100%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0px, black 64px, black 100%)",
+                }}
+              >
+                {conversationHistory.map((message, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm leading-relaxed ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground"
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
-          {!prompt.trim() && !isGenerating && !isFocused ? (
-            <Button
-              className="shrink-0 h-auto p-0 text-xs text-muted-foreground hover:bg-transparent"
-              onClick={() => inputRef.current?.focus()}
-              type="button"
-              variant="ghost"
-            >
-              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                <span className="text-xs">⌘</span>K
-              </kbd>
-            </Button>
-          ) : (
-            <Button
-              className="shrink-0"
-              disabled={!prompt.trim() || isGenerating}
-              size="sm"
-              type="submit"
-            >
-              <ArrowUp className="size-4" />
-            </Button>
-          )}
-        </form>
+          <form
+            className="relative flex items-center gap-2 rounded-lg border bg-background px-3 py-2 shadow-lg"
+            onSubmit={handleGenerate}
+          >
+            {isGenerating && prompt ? (
+              <Shimmer className="flex-1 text-sm whitespace-pre-wrap" duration={2}>
+                {prompt}
+              </Shimmer>
+            ) : (
+              <textarea
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
+                disabled={isGenerating}
+                onBlur={handleBlur}
+                onChange={(e) => {
+                  setPrompt(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                onFocus={handleFocus}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleGenerate(e as any);
+                  }
+                }}
+                placeholder={isFocused ? "Describe your workflow with natural language..." : "Ask AI..."}
+                ref={inputRef}
+                rows={1}
+                value={prompt}
+              />
+            )}
+            {canResetConversation && (
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      className="shrink-0"
+                      onClick={() => {
+                        setConversationHistory([]);
+                        setShowHistory(false);
+                      }}
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Eraser className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="end">
+                    Clear
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {!prompt.trim() && !isGenerating && !isFocused ? (
+              <Button
+                className="shrink-0 h-auto p-0 text-xs text-muted-foreground hover:bg-transparent"
+                onClick={() => inputRef.current?.focus()}
+                type="button"
+                variant="ghost"
+              >
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
+            ) : (
+              <Button
+                className="shrink-0"
+                disabled={!prompt.trim() || isGenerating}
+                size="sm"
+                type="submit"
+              >
+                <ArrowUp className="size-4" />
+              </Button>
+            )}
+          </form>
+        </div>
       </div>
     </>
   );

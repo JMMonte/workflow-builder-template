@@ -7,13 +7,6 @@ import { toast } from "sonner";
 import { AuthDialog } from "@/components/auth/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import {
   ApiError,
@@ -207,6 +200,98 @@ export default function InvitePage({
     </div>
   );
 
+  const renderInvitedAccountOption = () => {
+    if (!invite?.email) {
+      return null;
+    }
+
+    const isSelected = selectedAccount === invite.email;
+
+    return (
+      <button
+        className={cn(
+          "w-full rounded-lg border-2 p-3.5 text-left transition-all",
+          isSelected
+            ? "border-primary bg-primary/5 shadow-sm"
+            : "border-border bg-card hover:border-primary/50 hover:bg-muted/50"
+        )}
+        onClick={() => setSelectedAccount(invite.email)}
+        type="button"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <Mail className="size-4 text-muted-foreground" />
+              <p className="font-medium text-sm">{invite.email}</p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Check className="size-3.5 text-emerald-600" />
+              <p className="text-emerald-600 text-xs">
+                Invited to {invite.teamName}
+              </p>
+            </div>
+          </div>
+          <div
+            className={cn(
+              "mt-0.5 size-5 rounded-full border-2 transition-all",
+              isSelected
+                ? "border-primary bg-primary"
+                : "border-muted-foreground/30"
+            )}
+          >
+            {isSelected ? (
+              <Check className="size-4 text-primary-foreground" />
+            ) : null}
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  const renderCurrentAccountOption = () => {
+    if (!session?.user?.email || session.user.email === invite?.email) {
+      return null;
+    }
+
+    const isSelected = selectedAccount === session.user.email;
+
+    return (
+      <button
+        className={cn(
+          "w-full rounded-lg border-2 p-3.5 text-left opacity-60 transition-all",
+          isSelected
+            ? "border-muted-foreground bg-muted/30"
+            : "border-border bg-card hover:border-muted-foreground/50"
+        )}
+        onClick={() => setSelectedAccount(session.user.email)}
+        type="button"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <UserPlus className="size-4 text-muted-foreground" />
+              <p className="font-medium text-sm">{session.user.email}</p>
+            </div>
+            <p className="text-muted-foreground text-xs">Currently signed in</p>
+            <p className="text-destructive text-xs">
+              Cannot accept invite for different email
+            </p>
+          </div>
+          <div
+            className={cn(
+              "mt-0.5 size-5 rounded-full border-2 transition-all",
+              isSelected
+                ? "border-muted-foreground bg-muted-foreground"
+                : "border-muted-foreground/30"
+            )}
+          >
+            {isSelected ? <Check className="size-4 text-background" /> : null}
+          </div>
+        </div>
+      </button>
+    );
+  };
+
   const renderMismatch = () => (
     <div className="space-y-4">
       <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-900/50 dark:bg-amber-950/20">
@@ -219,98 +304,21 @@ export default function InvitePage({
       <div className="space-y-2.5">
         <p className="font-medium text-sm">Choose an account to continue:</p>
 
-        {invite?.email ? (
-          <button
-            type="button"
-            onClick={() => setSelectedAccount(invite.email)}
-            className={cn(
-              "w-full rounded-lg border-2 p-3.5 text-left transition-all",
-              selectedAccount === invite.email
-                ? "border-primary bg-primary/5 shadow-sm"
-                : "border-border bg-card hover:border-primary/50 hover:bg-muted/50"
-            )}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <Mail className="size-4 text-muted-foreground" />
-                  <p className="font-medium text-sm">{invite.email}</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Check className="size-3.5 text-emerald-600" />
-                  <p className="text-emerald-600 text-xs">
-                    Invited to {invite.teamName}
-                  </p>
-                </div>
-              </div>
-              <div
-                className={cn(
-                  "mt-0.5 size-5 rounded-full border-2 transition-all",
-                  selectedAccount === invite.email
-                    ? "border-primary bg-primary"
-                    : "border-muted-foreground/30"
-                )}
-              >
-                {selectedAccount === invite.email ? (
-                  <Check className="size-4 text-primary-foreground" />
-                ) : null}
-              </div>
-            </div>
-          </button>
-        ) : null}
-
-        {session?.user?.email && session.user.email !== invite?.email ? (
-          <button
-            type="button"
-            onClick={() => setSelectedAccount(session.user.email)}
-            className={cn(
-              "w-full rounded-lg border-2 p-3.5 text-left opacity-60 transition-all",
-              selectedAccount === session.user.email
-                ? "border-muted-foreground bg-muted/30"
-                : "border-border bg-card hover:border-muted-foreground/50"
-            )}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <UserPlus className="size-4 text-muted-foreground" />
-                  <p className="font-medium text-sm">{session.user.email}</p>
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  Currently signed in
-                </p>
-                <p className="text-destructive text-xs">
-                  Cannot accept invite for different email
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "mt-0.5 size-5 rounded-full border-2 transition-all",
-                  selectedAccount === session.user.email
-                    ? "border-muted-foreground bg-muted-foreground"
-                    : "border-muted-foreground/30"
-                )}
-              >
-                {selectedAccount === session.user.email ? (
-                  <Check className="size-4 text-background" />
-                ) : null}
-              </div>
-            </div>
-          </button>
-        ) : null}
+        {renderInvitedAccountOption()}
+        {renderCurrentAccountOption()}
       </div>
 
       {errorMessage}
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button
+          className="w-full sm:w-auto"
           disabled={
             switchingAccount ||
             !selectedAccount ||
             selectedAccount !== invite?.email
           }
           onClick={handleAccountContinue}
-          className="w-full sm:w-auto"
         >
           {switchingAccount ? (
             <>

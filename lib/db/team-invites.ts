@@ -64,7 +64,10 @@ export async function listPendingInvitesForEmail(
 ): Promise<TeamInvite[]> {
   const normalizedEmail = email.toLowerCase().trim();
   return await db.query.teamInvites.findMany({
-    where: and(eq(teamInvites.email, normalizedEmail), eq(teamInvites.status, "pending")),
+    where: and(
+      eq(teamInvites.email, normalizedEmail),
+      eq(teamInvites.status, "pending")
+    ),
   });
 }
 

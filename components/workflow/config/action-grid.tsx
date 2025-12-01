@@ -31,7 +31,7 @@ const actions: ActionType[] = [
   {
     id: "HTTP Request",
     label: "HTTP Request",
-    description: "Make an HTTP request to any API",
+    description: "Call REST APIs and external services",
     category: "System",
     icon: Zap,
   },
@@ -107,7 +107,7 @@ const actions: ActionType[] = [
   {
     id: "Scrape",
     label: "Scrape URL",
-    description: "Scrape content from a URL",
+    description: "Extract content from web pages",
     category: "Firecrawl",
     icon: Flame,
     integration: "firecrawl",

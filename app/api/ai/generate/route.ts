@@ -12,13 +12,15 @@ type Operation = {
     | "addEdge"
     | "removeNode"
     | "removeEdge"
-    | "updateNode";
+    | "updateNode"
+    | "setAssistantMessage";
   name?: string;
   description?: string;
   node?: unknown;
   edge?: unknown;
   nodeId?: string;
   edgeId?: string;
+  message?: string;
   updates?: {
     position?: { x: number; y: number };
     data?: unknown;
@@ -142,7 +144,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { prompt, existingWorkflow } = body;
+    const { prompt, conversationHistory = [], existingWorkflow } = body;
 
     if (!prompt) {
       return NextResponse.json(
@@ -193,7 +195,10 @@ ${JSON.stringify(existingWorkflow, null, 2)}
 
 User's request: ${prompt}
 
+Start by outputting {"op": "setAssistantMessage", "message": "Short summary of what you will change or any blockers"} so the user sees your plan.
+
 IMPORTANT: Output ONLY the operations needed to make the requested changes.
+- Allowed operations: setAssistantMessage, setName, setDescription, addNode, addEdge, removeNode, removeEdge, updateNode
 - If adding new nodes: output "addNode" operations for NEW nodes only, then IMMEDIATELY output "addEdge" operations to connect them to the workflow
 - If adding new edges: output "addEdge" operations for NEW edges only  
 - If removing nodes: output "removeNode" operations with the nodeId to remove
@@ -208,10 +213,19 @@ Example: If user says "connect node A to node B", output:
 {"op": "addEdge", "edge": {"id": "e-new", "source": "A", "target": "B", "type": "default"}}`;
     }
 
+    // Build messages array from conversation history
+    const messages = [
+      ...conversationHistory.map((msg: { role: string; content: string }) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      { role: "user", content: userPrompt },
+    ];
+
     const result = streamText({
-      model: "openai/gpt-5.1-instant",
+      model: "gpt-4-turbo",
       system: buildWorkflowSystemPrompt(),
-      prompt: userPrompt,
+      messages,
     });
 
     // Create a streaming response

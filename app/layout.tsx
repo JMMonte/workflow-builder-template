@@ -52,7 +52,9 @@ const RootLayout = ({ children }: RootLayoutProps) => (
             <ReactFlowProvider>
               <PersistentCanvas />
               <LoginGate />
-              <div className="pointer-events-none relative z-10">{children}</div>
+              <div className="pointer-events-none relative z-10">
+                {children}
+              </div>
             </ReactFlowProvider>
             <Toaster />
           </AuthProvider>

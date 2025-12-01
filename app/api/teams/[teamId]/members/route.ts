@@ -6,10 +6,7 @@ import {
   type TeamInvite,
   upsertTeamInvite,
 } from "@/lib/db/team-invites";
-import {
-  getTeamMembership,
-  listTeamMembers,
-} from "@/lib/db/teams";
+import { getTeamMembership, listTeamMembers } from "@/lib/db/teams";
 import {
   isSystemMailerConfigured,
   sendTeamInviteEmail,
@@ -190,7 +187,8 @@ export async function GET(
       const alreadyMember = memberEmails.has(normalizedEmail);
 
       // Only show pending or expired invites, hide accepted/cancelled ones
-      const shouldShow = invite.status === "pending" || invite.status === "expired";
+      const shouldShow =
+        invite.status === "pending" || invite.status === "expired";
 
       return !alreadyMember && shouldShow;
     });

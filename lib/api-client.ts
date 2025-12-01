@@ -23,6 +23,7 @@ export type WorkflowData = {
   icon?: string;
   iconColor?: string;
   teamId?: string;
+  assistantMessage?: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
 };
@@ -110,13 +111,15 @@ type StreamMessage = {
       | "addEdge"
       | "removeNode"
       | "removeEdge"
-      | "updateNode";
+      | "updateNode"
+      | "setAssistantMessage";
     name?: string;
     description?: string;
     node?: unknown;
     edge?: unknown;
     nodeId?: string;
     edgeId?: string;
+    message?: string;
     updates?: {
       position?: { x: number; y: number };
       data?: unknown;
@@ -241,6 +244,15 @@ function handleUpdateNode(
   }
 }
 
+function handleSetAssistantMessage(
+  op: StreamMessage["operation"],
+  state: StreamState
+): void {
+  if (typeof op?.message === "string") {
+    state.currentData.assistantMessage = op.message;
+  }
+}
+
 const operationHandlers: Record<string, OperationHandler> = {
   setName: handleSetName,
   setDescription: handleSetDescription,
@@ -249,6 +261,7 @@ const operationHandlers: Record<string, OperationHandler> = {
   removeNode: handleRemoveNode,
   removeEdge: handleRemoveEdge,
   updateNode: handleUpdateNode,
+  setAssistantMessage: handleSetAssistantMessage,
 };
 
 function applyOperation(
@@ -306,6 +319,11 @@ function processStreamChunk(
   }
 }
 
+type ConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export const aiApi = {
   generate: (
     prompt: string,
@@ -313,6 +331,7 @@ export const aiApi = {
       nodes: WorkflowNode[];
       edges: WorkflowEdge[];
       name?: string;
+      assistantMessage?: string;
     }
   ) =>
     apiCall<WorkflowData>("/api/ai/generate", {
@@ -321,11 +340,13 @@ export const aiApi = {
     }),
   generateStream: async (
     prompt: string,
+    conversationHistory: ConversationMessage[],
     onUpdate: (data: WorkflowData) => void,
     existingWorkflow?: {
       nodes: WorkflowNode[];
       edges: WorkflowEdge[];
       name?: string;
+      assistantMessage?: string;
     }
   ): Promise<WorkflowData> => {
     const response = await fetch("/api/ai/generate", {
@@ -333,11 +354,14 @@ export const aiApi = {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt, existingWorkflow }),
+      body: JSON.stringify({ prompt, conversationHistory, existingWorkflow }),
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const error = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
     }
 
     if (!response.body) {
@@ -353,8 +377,9 @@ export const aiApi = {
             nodes: existingWorkflow.nodes || [],
             edges: existingWorkflow.edges || [],
             name: existingWorkflow.name,
+            assistantMessage: existingWorkflow.assistantMessage,
           }
-        : { nodes: [], edges: [] },
+        : { nodes: [], edges: [], assistantMessage: undefined },
     };
 
     try {
