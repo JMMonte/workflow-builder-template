@@ -415,7 +415,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
       >
         <div className="space-y-3">
           {hasVisibleHistory && (
-            <div className="relative h-[320px] max-h-[50vh] overflow-hidden">
+            <div className="relative h-80 max-h-[50vh] overflow-hidden">
               <div
                 ref={historyScrollRef}
                 className="flex h-full flex-col justify-end gap-2 overflow-y-auto pr-1 pb-2 pt-4"
@@ -453,17 +453,17 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
               </Shimmer>
             ) : (
               <textarea
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none min-h-[24px] max-h-[200px] py-0"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground resize-none min-h-6 max-h-[200px] py-0"
                 disabled={isGenerating}
                 onBlur={handleBlur}
                 onChange={(e) => {
                   setPrompt(e.target.value);
-                  e.target.style.height = 'auto';
+                  e.target.style.height = "auto";
                   e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
                 onFocus={handleFocus}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleGenerate(e as any);
                   }

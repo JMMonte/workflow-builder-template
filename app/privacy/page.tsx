@@ -49,7 +49,7 @@ const LAST_UPDATED = "Mar 1, 2025";
 
 export default function PrivacyPage() {
   return (
-    <div className="bg-gradient-to-b from-background via-background to-muted/30">
+    <div className="bg-linear-to-b from-background via-background to-muted/30">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-16">
         <Card className="w-full shadow-lg">
           <CardHeader className="space-y-3">
