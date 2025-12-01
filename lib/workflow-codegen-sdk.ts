@@ -7,8 +7,9 @@ import { searchCodegenTemplate } from "../plugins/firecrawl/codegen/search";
 import { createTicketCodegenTemplate } from "../plugins/linear/codegen/create-ticket";
 import { sendEmailCodegenTemplate } from "../plugins/resend/codegen/send-email";
 import { sendSlackMessageCodegenTemplate } from "../plugins/slack/codegen/send-slack-message";
-// Import codegen templates directly
 import conditionTemplate from "./codegen-templates/condition";
+// Import codegen templates directly
+import contentCardTemplate from "./codegen-templates/content-card";
 import databaseQueryTemplate from "./codegen-templates/database-query";
 import httpRequestTemplate from "./codegen-templates/http-request";
 import {
@@ -37,6 +38,7 @@ function loadStepImplementation(actionType: string): string | null {
     "Find Issues": createTicketCodegenTemplate, // Uses same template for now
     "Generate Text": generateTextCodegenTemplate,
     "Generate Image": generateImageCodegenTemplate,
+    "Content Card": contentCardTemplate,
     "Database Query": databaseQueryTemplate,
     Scrape: scrapeCodegenTemplate,
     Search: searchCodegenTemplate,
@@ -527,12 +529,45 @@ export function generateWorkflowSDKCode(
     );
     const imageModel =
       (config.imageModel as string) || "google/imagen-4.0-generate";
-    return [
+    const params = [
       `model: "${imageModel}"`,
       `prompt: \`${convertTemplateToJS((config.imagePrompt as string) || "")}\``,
       'size: "1024x1024"',
       "providerOptions: { openai: { apiKey: process.env.AI_GATEWAY_API_KEY! } }",
     ];
+
+    if (config.imageReference) {
+      params.push(
+        `imageReference: \`${convertTemplateToJS((config.imageReference as string) || "")}\``
+      );
+    }
+
+    return params;
+  }
+
+  function buildContentCardParams(config: Record<string, unknown>): string[] {
+    const cardType = (config.cardType as string) || "text";
+    const sourceType = (config.imageSourceType as string) || "url";
+    const params = [
+      `actionType: "Content Card"`,
+      `cardType: "${cardType}"`,
+      `cardPrompt: \`${convertTemplateToJS((config.cardPrompt as string) || "")}\``,
+      `imageSourceType: "${sourceType}"`,
+    ];
+
+    if (config.imageUrl) {
+      params.push(
+        `imageUrl: \`${convertTemplateToJS((config.imageUrl as string) || "")}\``
+      );
+    }
+
+    if (config.imageBase64) {
+      params.push(
+        `imageBase64: \`${convertTemplateToJS((config.imageBase64 as string) || "")}\``
+      );
+    }
+
+    return params;
   }
 
   function buildDatabaseParams(config: Record<string, unknown>): string[] {
@@ -602,6 +637,7 @@ export function generateWorkflowSDKCode(
       "Create Ticket": () => buildTicketParams(config),
       "Generate Text": () => buildAITextParams(config),
       "Generate Image": () => buildAIImageParams(config),
+      "Content Card": () => buildContentCardParams(config),
       "Database Query": () => buildDatabaseParams(config),
       "HTTP Request": () => buildHttpParams(config),
       Condition: () => buildConditionParams(config),

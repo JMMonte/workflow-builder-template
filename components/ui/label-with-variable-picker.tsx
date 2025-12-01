@@ -1,20 +1,16 @@
 "use client";
 
 import { useAtom } from "jotai";
-import { Check } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { cn } from "@/lib/utils";
-import { edgesAtom, nodesAtom, type WorkflowNode } from "@/lib/workflow-store";
-
-type TemplateAutocompleteProps = {
-  isOpen: boolean;
-  position: { top: number; left: number };
-  onSelect: (template: string) => void;
-  onClose: () => void;
-  currentNodeId?: string;
-  filter?: string;
-};
+import { Plus } from "lucide-react";
+import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { edgesAtom, nodesAtom, selectedNodeAtom, type WorkflowNode } from "@/lib/workflow-store";
 
 type SchemaField = {
   name: string;
@@ -222,29 +218,29 @@ const getCommonFields = (node: WorkflowNode) => {
   return [{ field: "data", description: "Output data" }];
 };
 
-export function TemplateAutocomplete({
-  isOpen,
-  position,
-  onSelect,
-  onClose,
-  currentNodeId,
-  filter = "",
-}: TemplateAutocompleteProps) {
+type LabelWithVariablePickerProps = {
+  htmlFor?: string;
+  children: React.ReactNode;
+  onVariableSelect: (template: string) => void;
+  className?: string;
+};
+
+export function LabelWithVariablePicker({
+  htmlFor,
+  children,
+  onVariableSelect,
+  className,
+}: LabelWithVariablePickerProps) {
   const [nodes] = useAtom(nodesAtom);
   const [edges] = useAtom(edgesAtom);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  // Ensure we're mounted before trying to use portal
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const [selectedNodeId] = useAtom(selectedNodeAtom);
+  const [open, setOpen] = useState(false);
+  const [searchFilter, setSearchFilter] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Find all nodes that come before the current node
   const getUpstreamNodes = () => {
-    if (!currentNodeId) {
+    if (!selectedNodeId) {
       return [];
     }
 
@@ -264,7 +260,7 @@ export function TemplateAutocomplete({
       }
     };
 
-    traverse(currentNodeId);
+    traverse(selectedNodeId);
 
     return nodes.filter((node) => upstream.includes(node.id));
   };
@@ -307,122 +303,104 @@ export function TemplateAutocomplete({
   }
 
   // Filter options based on search term
-  const filteredOptions = filter
+  const filteredOptions = searchFilter
     ? options.filter(
         (opt) =>
-          opt.nodeName.toLowerCase().includes(filter.toLowerCase()) ||
-          (opt.field && opt.field.toLowerCase().includes(filter.toLowerCase()))
+          opt.nodeName.toLowerCase().includes(searchFilter.toLowerCase()) ||
+          (opt.field && opt.field.toLowerCase().includes(searchFilter.toLowerCase()))
       )
     : options;
 
-  // Reset selection when filter changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [filter]);
-
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-
-      switch (e.key) {
-        case "ArrowDown":
-          e.preventDefault();
-          setSelectedIndex((prev) =>
-            prev < filteredOptions.length - 1 ? prev + 1 : prev
-          );
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
-          break;
-        case "Enter":
-          e.preventDefault();
-          if (filteredOptions[selectedIndex]) {
-            onSelect(filteredOptions[selectedIndex].template);
-          }
-          break;
-        case "Escape":
-          e.preventDefault();
-          onClose();
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, filteredOptions, selectedIndex, onSelect, onClose]);
-
-  // Scroll selected item into view
-  useEffect(() => {
-    if (menuRef.current) {
-      const selectedElement = menuRef.current.children[
-        selectedIndex
-      ] as HTMLElement;
-      if (selectedElement) {
-        selectedElement.scrollIntoView({ block: "nearest" });
-      }
-    }
-  }, [selectedIndex]);
-
-  if (!isOpen || filteredOptions.length === 0 || !mounted) {
-    return null;
-  }
-
-  // Ensure position is within viewport
-  const adjustedPosition = {
-    top: Math.min(position.top, window.innerHeight - 300), // Keep 300px from bottom
-    left: Math.min(position.left, window.innerWidth - 320), // Keep menu (320px wide) within viewport
+  const handleSelect = (template: string) => {
+    onVariableSelect(template);
+    setOpen(false);
+    setSearchFilter("");
   };
 
-  const menuContent = (
-    <div
-      className="fixed z-[9999] w-80 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
-      ref={menuRef}
-      style={{
-        top: `${adjustedPosition.top}px`,
-        left: `${adjustedPosition.left}px`,
-      }}
-    >
-      <div className="max-h-60 overflow-y-auto">
-        {filteredOptions.map((option, index) => (
-          <div
-            className={cn(
-              "flex cursor-pointer items-center justify-between rounded px-2 py-1.5 text-sm transition-colors",
-              index === selectedIndex
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-accent/50"
-            )}
-            key={`${option.nodeId}-${option.field || "root"}`}
-            onClick={() => onSelect(option.template)}
-            onMouseEnter={() => setSelectedIndex(index)}
+  // Focus search input when popover opens
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+    } else {
+      setSearchFilter("");
+    }
+  };
+
+  // Don't show the button if there are no upstream nodes
+  if (upstreamNodes.length === 0) {
+    return <Label className={className} htmlFor={htmlFor}>{children}</Label>;
+  }
+
+  return (
+    <div className="flex items-center justify-between">
+      <Label className={className} htmlFor={htmlFor}>
+        {children}
+      </Label>
+      <DropdownMenu onOpenChange={handleOpenChange} open={open}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            className="h-6 w-6"
+            size="icon"
+            type="button"
+            variant="ghost"
           >
-            <div className="flex-1">
-              <div className="font-medium">
-                {option.type === "node" ? (
-                  option.nodeName
-                ) : (
-                  <>
-                    <span className="text-muted-foreground">
-                      {option.nodeName}.
-                    </span>
-                    {option.field}
-                  </>
-                )}
-              </div>
-              {option.description && (
-                <div className="text-muted-foreground text-xs">
-                  {option.description}
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-80 p-0">
+          <div className="flex flex-col">
+            <div className="border-b p-2">
+              <input
+                className="w-full bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground"
+                onChange={(e) => setSearchFilter(e.target.value)}
+                placeholder="Search variables..."
+                ref={searchInputRef}
+                type="text"
+                value={searchFilter}
+              />
+            </div>
+            <div className="max-h-60 overflow-y-auto p-1">
+              {filteredOptions.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No variables found
                 </div>
+              ) : (
+                filteredOptions.map((option) => (
+                  <button
+                    className="flex w-full cursor-pointer items-start rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                    key={`${option.nodeId}-${option.field || "root"}`}
+                    onClick={() => handleSelect(option.template)}
+                    type="button"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        {option.type === "node" ? (
+                          option.nodeName
+                        ) : (
+                          <>
+                            <span className="text-muted-foreground">
+                              {option.nodeName}.
+                            </span>
+                            {option.field}
+                          </>
+                        )}
+                      </div>
+                      {option.description && (
+                        <div className="text-muted-foreground text-xs">
+                          {option.description}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))
               )}
             </div>
-            {index === selectedIndex && <Check className="h-4 w-4" />}
           </div>
-        ))}
-      </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
-
-  // Use portal to render at document root to avoid clipping issues
-  return createPortal(menuContent, document.body);
 }

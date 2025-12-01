@@ -1,13 +1,10 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  type WorkflowExecution,
-  workflowExecutionLogs,
-  workflowExecutions,
-} from "@/lib/db/schema";
+import { workflowExecutionLogs, workflowExecutions } from "@/lib/db/schema";
+import type { LogApiPayload, RunStatus } from "@/lib/workflow-run";
 
-const executionStatuses: WorkflowExecution["status"][] = [
+const executionStatuses: RunStatus[] = [
   "pending",
   "running",
   "success",
@@ -15,10 +12,8 @@ const executionStatuses: WorkflowExecution["status"][] = [
   "cancelled",
 ];
 
-const isExecutionStatus = (
-  status: unknown
-): status is WorkflowExecution["status"] =>
-  executionStatuses.includes(status as WorkflowExecution["status"]);
+const isExecutionStatus = (status: unknown): status is RunStatus =>
+  executionStatuses.includes(status as RunStatus);
 
 async function startNodeLog(data: {
   executionId: string;
@@ -50,7 +45,7 @@ async function startNodeLog(data: {
 
 async function completeExecution(data: {
   executionId: string;
-  status: WorkflowExecution["status"];
+  status: RunStatus;
   output: unknown;
   error: string | null;
   startTime: number;
@@ -116,7 +111,7 @@ async function completeNodeLog(data: {
 async function handleCompleteAction(data: {
   executionId?: string;
   logId?: string;
-  status?: WorkflowExecution["status"];
+  status?: RunStatus;
   output?: unknown;
   error?: string | null;
   startTime?: number;
@@ -147,10 +142,26 @@ async function handleCompleteAction(data: {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, data } = body;
+    const { action, data } = body as { action: string; data: LogApiPayload };
 
     if (action === "start") {
-      return startNodeLog(data);
+      if (
+        !(data.executionId && data.nodeId && data.nodeName && data.nodeType)
+      ) {
+        return NextResponse.json(
+          { error: "Missing required fields for start action" },
+          { status: 400 }
+        );
+      }
+      return startNodeLog(
+        data as {
+          executionId: string;
+          nodeId: string;
+          nodeName: string;
+          nodeType: string;
+          input: unknown;
+        }
+      );
     }
 
     if (action === "complete") {

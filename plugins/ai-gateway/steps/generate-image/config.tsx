@@ -43,6 +43,17 @@ export function GenerateImageConfigFields({
           value={(config?.imagePrompt as string) || ""}
         />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="imageReference">Reference Image (optional)</Label>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="imageReference"
+          onChange={(value) => onUpdateConfig("imageReference", value)}
+          placeholder="Paste a URL, base64 string, or template reference for an existing image."
+          rows={3}
+          value={(config?.imageReference as string) || ""}
+        />
+      </div>
     </>
   );
 }

@@ -695,6 +695,18 @@ export const PanelInner = () => {
                 config={selectedNode.data.config || {}}
                 disabled={isGenerating}
                 onUpdateConfig={handleUpdateConfig}
+                onUpdateConfigBatch={(updates) => {
+                  if (selectedNode) {
+                    const newConfig = {
+                      ...selectedNode.data.config,
+                      ...updates,
+                    };
+                    updateNodeData({
+                      id: selectedNode.id,
+                      data: { config: newConfig },
+                    });
+                  }
+                }}
               />
             ) : null}
 

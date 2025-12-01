@@ -3,6 +3,7 @@
  * Replaces server actions with API endpoints
  */
 
+import type { WorkflowRun, WorkflowRunLog } from "./workflow-run";
 import type { WorkflowEdge, WorkflowNode } from "./workflow-store";
 
 export const TEAM_STORAGE_KEY = "activeTeamId";
@@ -48,7 +49,11 @@ export class ApiError extends Error {
 }
 
 // Helper function to make API calls
-async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function apiCall<T>(
+  endpoint: string,
+  options?: RequestInit,
+  opts: { allowRetry?: boolean } = { allowRetry: true }
+): Promise<T> {
   const headers = new Headers(options?.headers || {});
   headers.set("Content-Type", "application/json");
 
@@ -66,7 +71,28 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const error = await response
       .json()
       .catch(() => ({ error: "Unknown error" }));
-    throw new ApiError(response.status, error.error || "Request failed");
+
+    const message = error.error || "Request failed";
+
+    // If the request failed due to an invalid team, clear the stored team and retry once
+    if (
+      response.status === 403 &&
+      typeof window !== "undefined" &&
+      opts.allowRetry
+    ) {
+      const storedTeamId = getStoredTeamId();
+      const teamAccessError =
+        message.toLowerCase().includes("do not have access") ||
+        message.toLowerCase().includes("team");
+
+      if (storedTeamId && teamAccessError) {
+        window.localStorage.removeItem(TEAM_STORAGE_KEY);
+        window.dispatchEvent(new Event("active-team-change"));
+        return apiCall<T>(endpoint, options, { allowRetry: false });
+      }
+    }
+
+    throw new ApiError(response.status, message);
   }
 
   return response.json();
@@ -508,6 +534,24 @@ export const teamApi = {
       );
     }
   },
+  ensureActiveTeam: async (): Promise<string | null> => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const stored = getStoredTeamId();
+    if (stored) {
+      return stored;
+    }
+
+    const teams = await apiCall<Team[]>("/api/teams");
+    const firstTeam = teams[0];
+    if (firstTeam?.id) {
+      teamApi.setActiveTeam(firstTeam.id);
+      return firstTeam.id;
+    }
+    return null;
+  },
 };
 
 // User API
@@ -598,20 +642,7 @@ export const workflowApi = {
 
   // Get executions
   getExecutions: (id: string) =>
-    apiCall<
-      Array<{
-        id: string;
-        workflowId: string;
-        userId: string;
-        status: string;
-        input: unknown;
-        output: unknown;
-        error: string | null;
-        startedAt: Date;
-        completedAt: Date | null;
-        duration: string | null;
-      }>
-    >(`/api/workflows/${id}/executions`),
+    apiCall<WorkflowRun[]>(`/api/workflows/${id}/executions`),
 
   // Delete executions
   deleteExecutions: (id: string) =>
@@ -625,17 +656,7 @@ export const workflowApi = {
   // Get execution logs
   getExecutionLogs: (executionId: string) =>
     apiCall<{
-      execution: {
-        id: string;
-        workflowId: string;
-        userId: string;
-        status: string;
-        input: unknown;
-        output: unknown;
-        error: string | null;
-        startedAt: Date;
-        completedAt: Date | null;
-        duration: string | null;
+      execution: WorkflowRun & {
         workflow: {
           id: string;
           name: string;
@@ -643,20 +664,7 @@ export const workflowApi = {
           edges: unknown;
         };
       };
-      logs: Array<{
-        id: string;
-        executionId: string;
-        nodeId: string;
-        nodeName: string;
-        nodeType: string;
-        status: "pending" | "running" | "success" | "error";
-        input: unknown;
-        output: unknown;
-        error: string | null;
-        startedAt: Date;
-        completedAt: Date | null;
-        duration: string | null;
-      }>;
+      logs: WorkflowRunLog[];
     }>(`/api/workflows/executions/${executionId}/logs`),
 
   // Get execution status

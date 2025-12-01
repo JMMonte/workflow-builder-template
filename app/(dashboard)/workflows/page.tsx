@@ -52,6 +52,7 @@ export default function WorkflowsPage() {
   const loadWorkflows = useCallback(async () => {
     try {
       setLoading(true);
+      await api.team.ensureActiveTeam();
       const data = await api.workflow.getAll();
       setWorkflows(data);
     } catch (error) {

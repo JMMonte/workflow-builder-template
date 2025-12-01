@@ -32,11 +32,13 @@ export async function GET(
     }
 
     // Fetch executions
+    console.time(`[API] Get executions for ${workflowId}`);
     const executions = await db.query.workflowExecutions.findMany({
       where: eq(workflowExecutions.workflowId, workflowId),
       orderBy: [desc(workflowExecutions.startedAt)],
       limit: 50,
     });
+    console.timeEnd(`[API] Get executions for ${workflowId}`);
 
     return NextResponse.json(executions);
   } catch (error) {

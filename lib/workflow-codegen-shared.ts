@@ -313,6 +313,10 @@ export function getStepInfo(actionType: string): {
         functionName: "generateImageStep",
         importPath: "./steps/generate-image-step",
       },
+      "Content Card": {
+        functionName: "contentCardStep",
+        importPath: "./steps/content-card",
+      },
       "Database Query": {
         functionName: "databaseQueryStep",
         importPath: "./steps/database-query-step",

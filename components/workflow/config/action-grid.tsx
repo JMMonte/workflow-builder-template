@@ -8,6 +8,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  StickyNote,
   Ticket,
   Zap,
 } from "lucide-react";
@@ -95,6 +96,13 @@ const actions: ActionType[] = [
     category: "AI Gateway",
     icon: Sparkles,
     integration: "vercel",
+  },
+  {
+    id: "Content Card",
+    label: "Content Card",
+    description: "Reusable card for shared text or image prompts",
+    category: "Content",
+    icon: StickyNote,
   },
   {
     id: "Scrape",

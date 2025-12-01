@@ -12,6 +12,7 @@ import type { createTicketStep } from "../../plugins/linear/steps/create-ticket/
 import type { sendEmailStep } from "../../plugins/resend/steps/send-email/step";
 import type { sendSlackMessageStep } from "../../plugins/slack/steps/send-slack-message/step";
 import type { conditionStep } from "./condition";
+import type { contentCardStep } from "./content-card";
 import type { databaseQueryStep } from "./database-query";
 import type { httpRequestStep } from "./http-request";
 import type { logNodeCompleteStep, logNodeStartStep } from "./logging";
@@ -57,6 +58,10 @@ export const stepRegistry: Record<string, StepFunction> = {
     (
       await import("../../plugins/ai-gateway/steps/generate-image/step")
     ).generateImageStep(input as Parameters<typeof generateImageStep>[0]),
+  "Content Card": async (input) =>
+    (await import("./content-card")).contentCardStep(
+      input as Parameters<typeof contentCardStep>[0]
+    ),
   "Log Node Start": async (input) =>
     (await import("./logging")).logNodeStartStep(
       input as Parameters<typeof logNodeStartStep>[0]

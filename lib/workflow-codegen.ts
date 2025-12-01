@@ -445,15 +445,31 @@ export function generateWorkflowCode(
       (node.data.config?.imagePrompt as string) || "A beautiful landscape";
     const imageModel =
       (node.data.config?.imageModel as string) || "google/imagen-4.0-generate";
+    const imageReference = node.data.config?.imageReference as string;
+    const referenceValue = imageReference
+      ? formatTemplateValue(imageReference)
+      : null;
+    const promptValue = generatePromptValue(imagePrompt);
 
-    return [
+    const lines = [
       `${indent}// Generate image using AI`,
       `${indent}const ${varName} = await generateImage({`,
       `${indent}  model: "${imageModel}",`,
-      `${indent}  prompt: \`${imagePrompt}\`,`,
-      `${indent}  size: "1024x1024",`,
-      `${indent}});`,
+      referenceValue
+        ? `${indent}  prompt: ${promptValue} + "\\nReference image provided.",`
+        : `${indent}  prompt: ${promptValue},`,
     ];
+
+    if (referenceValue) {
+      lines.push(
+        `${indent}  providerOptions: { openai: { image: ${referenceValue} } },`
+      );
+    }
+
+    lines.push(`${indent}  size: "1024x1024",`);
+    lines.push(`${indent}});`);
+
+    return lines;
   }
 
   function generateSlackActionCode(
@@ -505,6 +521,51 @@ export function generateWorkflowCode(
     return hasTemplateRefs
       ? `\`${escaped}\``
       : `\`${value.replace(/`/g, "\\`")}\``;
+  }
+
+  function generateContentCardActionCode(
+    node: WorkflowNode,
+    indent: string,
+    varName: string
+  ): string[] {
+    const cardType = (node.data.config?.cardType as string) || "text";
+    const cardPrompt = (node.data.config?.cardPrompt as string) || "";
+    const promptValue = generatePromptValue(cardPrompt);
+    const sourceType = (node.data.config?.imageSourceType as string) || "url";
+    const imageUrl = (node.data.config?.imageUrl as string) || "";
+    const imageBase64 = (node.data.config?.imageBase64 as string) || "";
+
+    const lines = [
+      `${indent}const ${varName} = {`,
+      `${indent}  success: true,`,
+      `${indent}  type: "${cardType}",`,
+      `${indent}  prompt: ${promptValue},`,
+    ];
+
+    if (cardType === "image") {
+      const imageValue =
+        sourceType === "base64"
+          ? formatTemplateValue(imageBase64)
+          : formatTemplateValue(imageUrl);
+      lines.push(`${indent}  image: ${imageValue},`);
+      const optionalImageFields = [
+        { key: "url", value: imageUrl },
+        { key: "base64", value: imageBase64 },
+      ].filter((field) => field.value);
+
+      for (const field of optionalImageFields) {
+        lines.push(
+          `${indent}  ${field.key}: ${formatTemplateValue(field.value)},`
+        );
+      }
+
+      lines.push(`${indent}};`);
+      return lines;
+    }
+
+    lines.push(`${indent}  text: ${promptValue},`);
+    lines.push(`${indent}};`);
+    return lines;
   }
 
   function generateFirecrawlActionCode(
@@ -613,6 +674,10 @@ export function generateWorkflowCode(
     if (actionType === "Generate Text") {
       lines.push(
         ...wrapActionCall(generateAiTextActionCode(node, indent, varName))
+      );
+    } else if (actionType === "Content Card") {
+      lines.push(
+        ...wrapActionCall(generateContentCardActionCode(node, indent, varName))
       );
     } else if (actionType === "Generate Image") {
       lines.push(

@@ -6,6 +6,7 @@ import {
   DEFAULT_WORKFLOW_ICON,
   DEFAULT_WORKFLOW_ICON_COLOR,
 } from "./workflow-defaults";
+import type { NodeStatus } from "./workflow-run";
 
 export type WorkflowNodeType = "trigger" | "action" | "add";
 
@@ -53,7 +54,7 @@ export type ExecutionLogEntry = {
   nodeId: string;
   nodeName: string;
   nodeType: string;
-  status: "pending" | "running" | "success" | "error";
+  status: NodeStatus;
   output?: unknown;
 };
 

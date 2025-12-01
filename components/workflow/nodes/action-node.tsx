@@ -8,11 +8,13 @@ import {
   Code,
   Database,
   EyeOff,
+  FileText,
   GitBranch,
+  Image as ImageIcon,
   XCircle,
   Zap,
 } from "lucide-react";
-import Image from "next/image";
+import NextImage from "next/image";
 import { memo, useState } from "react";
 import {
   Node,
@@ -76,6 +78,7 @@ const getIntegrationFromActionType = (actionType: string): string => {
     "Database Query": "Database",
     "Generate Text": "AI Gateway",
     "Generate Image": "AI Gateway",
+    "Content Card": "Content Card",
     Scrape: "Firecrawl",
     Search: "Firecrawl",
     Condition: "Condition",
@@ -116,7 +119,12 @@ const hasIntegrationConfigured = (config: Record<string, unknown>): boolean =>
   Boolean(config?.integrationId);
 
 // Helper to get provider logo for action type
-const getProviderLogo = (actionType: string) => {
+const getProviderLogo = (
+  actionType: string,
+  options?: { cardType?: string }
+) => {
+  const cardType = options?.cardType;
+
   switch (actionType) {
     case "Send Email":
       return <IntegrationIcon className="size-12" integration="resend" />;
@@ -132,6 +140,12 @@ const getProviderLogo = (actionType: string) => {
     case "Generate Text":
     case "Generate Image":
       return <IntegrationIcon className="size-12" integration="vercel" />;
+    case "Content Card":
+      return cardType === "image" ? (
+        <ImageIcon className="size-12 text-blue-300" strokeWidth={1.5} />
+      ) : (
+        <FileText className="size-12 text-amber-300" strokeWidth={1.5} />
+      );
     case "Scrape":
     case "Search":
       return <IntegrationIcon className="size-12" integration="firecrawl" />;
@@ -143,6 +157,8 @@ const getProviderLogo = (actionType: string) => {
       return <Zap className="size-12 text-amber-300" strokeWidth={1.5} />;
   }
 };
+
+const TEMPLATE_REF_REGEX = /\{\{.*\}\}/;
 
 // Status badge component
 const StatusBadge = ({
@@ -193,14 +209,14 @@ function GeneratedImageThumbnail({ base64 }: { base64: string }) {
   return (
     <>
       <button
-        className="relative size-12 cursor-zoom-in overflow-hidden rounded-lg transition-transform hover:scale-105"
+        className="relative h-24 w-full cursor-zoom-in overflow-hidden rounded-lg transition-transform hover:scale-105"
         onClick={(e) => {
           e.stopPropagation();
           setDialogOpen(true);
         }}
         type="button"
       >
-        <Image
+        <NextImage
           alt="Generated image"
           className="object-cover"
           fill
@@ -214,12 +230,55 @@ function GeneratedImageThumbnail({ base64 }: { base64: string }) {
         <DialogContent className="max-w-3xl p-2" showCloseButton={false}>
           <DialogTitle className="sr-only">Generated Image</DialogTitle>
           <div className="relative aspect-square w-full overflow-hidden rounded-lg">
-            <Image
+            <NextImage
               alt="Generated image"
               className="object-contain"
               fill
               sizes="(max-width: 768px) 100vw, 768px"
               src={`data:image/png;base64,${base64}`}
+              unoptimized
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// Preview image stored on the node config (e.g., uploaded content card)
+function ConfigImageThumbnail({ src }: { src: string }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        className="relative h-24 w-full cursor-zoom-in overflow-hidden rounded-lg transition-transform hover:scale-105"
+        onClick={(e) => {
+          e.stopPropagation();
+          setDialogOpen(true);
+        }}
+        type="button"
+      >
+        <NextImage
+          alt="Card image"
+          className="object-cover"
+          fill
+          sizes="48px"
+          src={src}
+          unoptimized
+        />
+      </button>
+
+      <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
+        <DialogContent className="max-w-3xl p-2" showCloseButton={false}>
+          <DialogTitle className="sr-only">Card Image</DialogTitle>
+          <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+            <NextImage
+              alt="Card image"
+              className="object-contain"
+              fill
+              sizes="(max-width: 768px) 100vw, 768px"
+              src={src}
               unoptimized
             />
           </div>
@@ -245,6 +304,36 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
 
   const actionType = (data.config?.actionType as string) || "";
   const status = data.status;
+  const rawCardType = (data.config?.cardType as string) || "";
+  const cardType =
+    rawCardType ||
+    (data.config?.imageBase64 || data.config?.imageUrl ? "image" : undefined) ||
+    (actionType === "Content Card" ? "text" : undefined);
+  const contentCardImage = (() => {
+    if (!(actionType === "Content Card" && cardType === "image")) {
+      return null;
+    }
+
+    const imageBase64 = (data.config?.imageBase64 as string) || "";
+    const imageUrl = (data.config?.imageUrl as string) || "";
+
+    if (imageBase64 && !TEMPLATE_REF_REGEX.test(imageBase64)) {
+      return imageBase64.startsWith("data:")
+        ? imageBase64
+        : `data:image/png;base64,${imageBase64}`;
+    }
+
+    if (imageUrl && !TEMPLATE_REF_REGEX.test(imageUrl)) {
+      return imageUrl;
+    }
+
+    return null;
+  })();
+  let defaultDescription = getIntegrationFromActionType(actionType);
+  if (actionType === "Content Card") {
+    defaultDescription =
+      cardType === "image" || contentCardImage ? "Image card" : "Text card";
+  }
 
   // Check if this node has a generated image from the selected execution
   const nodeLog = executionLogs[id];
@@ -288,8 +377,7 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
   }
 
   const displayTitle = data.label || actionType;
-  const displayDescription =
-    data.description || getIntegrationFromActionType(actionType);
+  const displayDescription = data.description || defaultDescription;
 
   const needsIntegration = requiresIntegration(actionType);
   const integrationMissing =
@@ -310,6 +398,19 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
 
   const aiModel = getAiModel();
   const isDisabled = data.enabled === false;
+  let primaryVisual: React.ReactNode;
+
+  if (hasGeneratedImage) {
+    primaryVisual = (
+      <GeneratedImageThumbnail
+        base64={(nodeLog.output as { base64: string }).base64}
+      />
+    );
+  } else if (contentCardImage) {
+    primaryVisual = <ConfigImageThumbnail src={contentCardImage} />;
+  } else {
+    primaryVisual = getProviderLogo(actionType, { cardType });
+  }
 
   return (
     <Node
@@ -338,14 +439,8 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
       {/* Status indicator badge in top right */}
       <StatusBadge status={status} />
 
-      <div className="flex flex-col items-center justify-center gap-3 p-6">
-        {hasGeneratedImage ? (
-          <GeneratedImageThumbnail
-            base64={(nodeLog.output as { base64: string }).base64}
-          />
-        ) : (
-          getProviderLogo(actionType)
-        )}
+      <div className="flex w-full flex-col items-center justify-center gap-3 p-4">
+        {primaryVisual}
         <div className="flex flex-col items-center gap-1 text-center">
           <NodeTitle className="text-base">{displayTitle}</NodeTitle>
           {displayDescription && (

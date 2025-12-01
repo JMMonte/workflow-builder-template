@@ -4,15 +4,8 @@
  */
 
 import { getErrorMessageAsync } from "./utils";
+import type { ExecutionResult, NodeOutputs } from "./workflow-run";
 import type { WorkflowEdge, WorkflowNode } from "./workflow-store";
-
-type ExecutionResult = {
-  success: boolean;
-  data?: unknown;
-  error?: string;
-};
-
-type NodeOutputs = Record<string, { label: string; data: unknown }>;
 
 export type WorkflowExecutionInput = {
   nodes: WorkflowNode[];
@@ -22,6 +15,79 @@ export type WorkflowExecutionInput = {
   workflowId?: string; // Used by steps to fetch credentials
   teamId?: string;
 };
+
+/**
+ * Build a lightweight representation of content card output for logging.
+ * Keeps prompt/text and a small preview, but strips raw base64/image bodies.
+ */
+function formatContentCardLogOutput(output: unknown):
+  | {
+      type: "text" | "image";
+      prompt?: string;
+      text?: string;
+      preview?: string;
+      source?: "url" | "base64" | "unknown";
+      length?: number;
+    }
+  | undefined {
+  if (!output || typeof output !== "object") {
+    return;
+  }
+
+  const content = output as {
+    type?: unknown;
+    prompt?: unknown;
+    text?: unknown;
+    image?: unknown;
+    url?: unknown;
+    base64?: unknown;
+  };
+
+  const type =
+    content.type === "image" || content.type === "text"
+      ? content.type
+      : undefined;
+
+  if (!type) {
+    return;
+  }
+
+  const prompt =
+    typeof content.prompt === "string" ? (content.prompt as string) : undefined;
+
+  if (type === "text") {
+    const text = typeof content.text === "string" ? content.text : undefined;
+    return {
+      type,
+      prompt,
+      text,
+      length: text?.length,
+    };
+  }
+
+  const url = typeof content.url === "string" ? content.url : undefined;
+  const base64 =
+    typeof content.base64 === "string" ? content.base64 : undefined;
+
+  let source: "url" | "base64" | "unknown" = "unknown";
+  let preview: string | undefined;
+
+  if (url) {
+    source = "url";
+    preview = url;
+  } else if (base64) {
+    source = "base64";
+    preview = `[base64 ${base64.length} chars]`;
+  }
+
+  return {
+    type,
+    prompt,
+    preview,
+    source,
+    length: base64?.length,
+  };
+}
 
 /**
  * Execute a single action step
@@ -97,6 +163,11 @@ async function executeActionStep(input: {
 
   // Import and execute the appropriate step function
   // Step functions load credentials from process.env themselves
+  if (actionType === "Content Card") {
+    const { contentCardStep } = await import("./steps/content-card");
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic step input type
+    return await contentCardStep({ ...stepInput, actionType } as any);
+  }
   if (actionType === "Send Email") {
     const { sendEmailStep } = await import(
       "../plugins/resend/steps/send-email/step"
@@ -303,24 +374,7 @@ function processTemplates(
 export async function executeWorkflow(input: WorkflowExecutionInput) {
   "use workflow";
 
-  console.log("[Workflow Executor] Starting workflow execution");
-
-  const {
-    nodes,
-    edges,
-    triggerInput = {},
-    executionId,
-    workflowId,
-    teamId,
-  } = input;
-
-  console.log("[Workflow Executor] Input:", {
-    nodeCount: nodes.length,
-    edgeCount: edges.length,
-    hasExecutionId: !!executionId,
-    teamId: teamId || "none",
-    workflowId: workflowId || "none",
-  });
+  const { nodes, edges, triggerInput = {}, executionId } = input;
 
   const outputs: NodeOutputs = {};
   const results: Record<string, ExecutionResult> = {};
@@ -595,7 +649,10 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
             logId: logInfo.logId,
             startTime: logInfo.startTime,
             status: "success",
-            output: result.data,
+            output:
+              node.data.config?.actionType === "Content Card"
+                ? formatContentCardLogOutput(result.data)
+                : result.data,
           });
         }
       } else {

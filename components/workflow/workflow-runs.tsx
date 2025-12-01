@@ -19,6 +19,16 @@ import { toast } from "sonner";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { getRelativeTime } from "@/lib/utils/time";
+import type {
+  NodeStatus,
+  WorkflowRun,
+  WorkflowRunLog,
+} from "@/lib/workflow-run";
+import {
+  currentWorkflowRunsAtom,
+  lastLoadedWorkflowIdAtom,
+  runsLoadingAtom,
+} from "@/lib/workflow-runs-store";
 import {
   currentWorkflowIdAtom,
   executionLogsAtom,
@@ -28,28 +38,16 @@ import {
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
 
-type ExecutionLog = {
-  id: string;
-  nodeId: string;
-  nodeName: string;
-  nodeType: string;
-  status: "pending" | "running" | "success" | "error";
+// Component-specific log type (subset of WorkflowRunLog)
+type ComponentLog = Pick<
+  WorkflowRunLog,
+  "id" | "nodeId" | "nodeName" | "nodeType" | "status" | "error"
+> & {
   startedAt: Date;
   completedAt: Date | null;
   duration: string | null;
   input?: unknown;
   output?: unknown;
-  error: string | null;
-};
-
-type WorkflowExecution = {
-  id: string;
-  workflowId: string;
-  status: "pending" | "running" | "success" | "error" | "cancelled";
-  startedAt: Date;
-  completedAt: Date | null;
-  duration: string | null;
-  error: string | null;
 };
 
 type WorkflowRunsProps = {
@@ -70,7 +68,7 @@ function isBase64ImageOutput(output: unknown): output is { base64: string } {
 }
 
 // Helper to convert execution logs to a map by nodeId for the global atom
-function createExecutionLogsMap(logs: ExecutionLog[]): Record<
+function createExecutionLogsMap(logs: ComponentLog[]): Record<
   string,
   {
     nodeId: string;
@@ -86,7 +84,7 @@ function createExecutionLogsMap(logs: ExecutionLog[]): Record<
       nodeId: string;
       nodeName: string;
       nodeType: string;
-      status: "pending" | "running" | "success" | "error";
+      status: NodeStatus;
       output?: unknown;
     }
   > = {};
@@ -151,7 +149,7 @@ function ExecutionLogEntry({
   isFirst,
   isLast,
 }: {
-  log: ExecutionLog;
+  log: ComponentLog;
   isExpanded: boolean;
   onToggle: () => void;
   getStatusIcon: (status: string) => JSX.Element;
@@ -278,11 +276,11 @@ function ExecutionLogEntry({
 }
 
 type ExecutionCardProps = {
-  execution: WorkflowExecution;
+  execution: WorkflowRun;
   runNumber: number;
   isExpanded: boolean;
   isSelected: boolean;
-  executionLogs: ExecutionLog[];
+  executionLogs: ComponentLog[];
   expandedLogs: Set<string>;
   toggleRun: (executionId: string) => Promise<void> | void;
   selectRun: (executionId: string) => void;
@@ -434,11 +432,14 @@ export function WorkflowRuns({
   );
   const [, setIsExecuting] = useAtom(isExecutingAtom);
   const [, setExecutionLogs] = useAtom(executionLogsAtom);
-  const [executions, setExecutions] = useState<WorkflowExecution[]>([]);
-  const [logs, setLogs] = useState<Record<string, ExecutionLog[]>>({});
+  const [executions, setExecutions] = useAtom(currentWorkflowRunsAtom);
+  const [loading, setLoading] = useAtom(runsLoadingAtom);
+  const [lastLoadedWorkflowId, setLastLoadedWorkflowId] = useAtom(
+    lastLoadedWorkflowIdAtom
+  );
+  const [logs, setLogs] = useState<Record<string, ComponentLog[]>>({});
   const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set());
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
   const [cancellingExecutionId, setCancellingExecutionId] = useState<
     string | null
   >(null);
@@ -447,10 +448,10 @@ export function WorkflowRuns({
   const autoExpandedExecutionRef = useRef<string | null>(null);
 
   const loadExecutions = useCallback(
-    async (showLoading = true) => {
+    async (showLoading = true): Promise<WorkflowRun[]> => {
       if (!currentWorkflowId) {
         setLoading(false);
-        return;
+        return [];
       }
 
       try {
@@ -458,29 +459,48 @@ export function WorkflowRuns({
           setLoading(true);
         }
         const data = await api.workflow.getExecutions(currentWorkflowId);
-        setExecutions(data as WorkflowExecution[]);
-      } catch (error) {
-        console.error("Failed to load executions:", error);
-        setExecutions([]);
-      } finally {
+        setExecutions(data as WorkflowRun[]);
+        setLastLoadedWorkflowId(currentWorkflowId);
         if (showLoading) {
           setLoading(false);
         }
+        return data as WorkflowRun[];
+      } catch (error) {
+        console.error("Failed to load executions:", error);
+        setExecutions([]);
+        setLoading(false);
+        setLastLoadedWorkflowId(currentWorkflowId);
+        return [];
       }
     },
-    [currentWorkflowId]
+    [currentWorkflowId, setExecutions, setLastLoadedWorkflowId, setLoading]
   );
 
   // Expose refresh function via ref
   useEffect(() => {
     if (onRefreshRef) {
-      onRefreshRef.current = () => loadExecutions(false);
+      onRefreshRef.current = async () => {
+        await loadExecutions(false);
+      };
     }
   }, [loadExecutions, onRefreshRef]);
 
+  // Track last loaded workflow ID to prevent unnecessary reloads
   useEffect(() => {
-    loadExecutions();
-  }, [loadExecutions]);
+    // Only load if workflow ID has changed
+    if (currentWorkflowId && lastLoadedWorkflowId !== currentWorkflowId) {
+      loadExecutions();
+    } else if (!currentWorkflowId) {
+      setLoading(false);
+      setLastLoadedWorkflowId(null);
+    }
+  }, [
+    currentWorkflowId,
+    lastLoadedWorkflowId,
+    loadExecutions,
+    setLastLoadedWorkflowId,
+    setLoading,
+  ]);
 
   useEffect(() => {
     const hasRunningExecution = executions.some(
@@ -498,7 +518,7 @@ export function WorkflowRuns({
         nodeId: string;
         nodeName: string;
         nodeType: string;
-        status: "pending" | "running" | "success" | "error";
+        status: NodeStatus;
         input: unknown;
         output: unknown;
         error: string | null;
@@ -509,7 +529,7 @@ export function WorkflowRuns({
       _workflow?: {
         nodes: unknown;
       }
-    ): ExecutionLog[] =>
+    ): ComponentLog[] =>
       logEntries.map((log) => ({
         id: log.id,
         nodeId: log.nodeId,
@@ -632,7 +652,53 @@ export function WorkflowRuns({
     [mapNodeLabels, selectedExecutionId, setExecutionLogs]
   );
 
-  // Poll for new executions when tab is active
+  // Keep the selected run in sync: fetch executions and logs when selection changes
+  useEffect(() => {
+    if (!(currentWorkflowId && selectedExecutionId)) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const ensureSelectedExecution = async () => {
+      const data = await loadExecutions(false);
+      if (isCancelled) {
+        return;
+      }
+
+      const selectedExecution = data.find(
+        (execution) => execution.id === selectedExecutionId
+      );
+
+      if (!selectedExecution) {
+        return;
+      }
+
+      setExpandedRuns((prev) => {
+        const next = new Set(prev);
+        next.add(selectedExecutionId);
+        return next;
+      });
+
+      if (!logs[selectedExecutionId]) {
+        await loadExecutionLogs(selectedExecutionId);
+      }
+    };
+
+    ensureSelectedExecution();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    currentWorkflowId,
+    selectedExecutionId,
+    loadExecutions,
+    loadExecutionLogs,
+    logs,
+  ]);
+
+  // Poll for new executions when tab is active AND there are running executions
   useEffect(() => {
     if (!(isActive && currentWorkflowId)) {
       return;
@@ -641,11 +707,14 @@ export function WorkflowRuns({
     const pollExecutions = async () => {
       try {
         const data = await api.workflow.getExecutions(currentWorkflowId);
-        setExecutions(data as WorkflowExecution[]);
+        setExecutions(data as WorkflowRun[]);
 
-        // Also refresh logs for expanded runs
+        // Always refresh logs for expanded executions so completed runs get final outputs
         for (const executionId of expandedRuns) {
-          await refreshExecutionLogs(executionId);
+          const execution = data.find((e) => e.id === executionId);
+          if (execution) {
+            await refreshExecutionLogs(executionId);
+          }
         }
       } catch (error) {
         console.error("Failed to poll executions:", error);
@@ -654,7 +723,13 @@ export function WorkflowRuns({
 
     const interval = setInterval(pollExecutions, 2000);
     return () => clearInterval(interval);
-  }, [isActive, currentWorkflowId, expandedRuns, refreshExecutionLogs]);
+  }, [
+    isActive,
+    currentWorkflowId,
+    expandedRuns,
+    refreshExecutionLogs,
+    setExecutions,
+  ]);
 
   const toggleRun = async (executionId: string) => {
     const newExpanded = new Set(expandedRuns);

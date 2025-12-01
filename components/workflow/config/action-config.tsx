@@ -1,12 +1,16 @@
 "use client";
 
-import { useAtom } from "jotai";
-import { Settings } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useAtom, useAtomValue } from "jotai";
+import { Copy, Settings, StickyNote } from "lucide-react";
+import NextImage from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
 import { Input } from "@/components/ui/input";
 import { IntegrationIcon } from "@/components/ui/integration-icon";
 import { Label } from "@/components/ui/label";
+import { LabelWithVariablePicker } from "@/components/ui/label-with-variable-picker";
 import {
   Select,
   SelectContent,
@@ -19,13 +23,65 @@ import { TemplateBadgeTextarea } from "@/components/ui/template-badge-textarea";
 import {
   currentWorkflowIdAtom,
   currentWorkflowNameAtom,
+  edgesAtom,
+  nodesAtom,
+  selectedNodeAtom,
+  type WorkflowEdge,
+  type WorkflowNode,
 } from "@/lib/workflow-store";
 import { AiGatewayModelSelect } from "./ai-gateway-model-select";
 import { SchemaBuilder, type SchemaField } from "./schema-builder";
 
+const TEMPLATE_PATTERN = /\{\{.*\}\}/;
+
+function getContentCardPreviewSrc(config: Record<string, unknown>) {
+  const base64 = (config?.imageBase64 as string) || "";
+  const url = (config?.imageUrl as string) || "";
+
+  if (base64 && !TEMPLATE_PATTERN.test(base64)) {
+    if (base64.startsWith("data:")) {
+      return base64;
+    }
+    return `data:image/png;base64,${base64}`;
+  }
+
+  if (url && !TEMPLATE_PATTERN.test(url)) {
+    return url;
+  }
+
+  return null;
+}
+
+function getUpstreamNodes(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  currentNodeId?: string | null
+): WorkflowNode[] {
+  if (!currentNodeId) {
+    return [];
+  }
+
+  const upstreamIds = new Set<string>();
+
+  const traverse = (nodeId: string) => {
+    const incomingEdges = edges.filter((edge) => edge.target === nodeId);
+    for (const edge of incomingEdges) {
+      if (!upstreamIds.has(edge.source)) {
+        upstreamIds.add(edge.source);
+        traverse(edge.source);
+      }
+    }
+  };
+
+  traverse(currentNodeId);
+
+  return nodes.filter((node) => upstreamIds.has(node.id));
+}
+
 type ActionConfigProps = {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
+  onUpdateConfigBatch?: (updates: Record<string, unknown>) => void;
   disabled: boolean;
 };
 
@@ -42,9 +98,16 @@ function SendEmailFields({
   return (
     <>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="emailTo">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="emailTo"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.emailTo as string) || "";
+            onUpdateConfig("emailTo", currentValue + template);
+          }}
+        >
           To (Email Address)
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="emailTo"
@@ -54,9 +117,16 @@ function SendEmailFields({
         />
       </div>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="emailSubject">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="emailSubject"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.emailSubject as string) || "";
+            onUpdateConfig("emailSubject", currentValue + template);
+          }}
+        >
           Subject
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="emailSubject"
@@ -66,9 +136,16 @@ function SendEmailFields({
         />
       </div>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="emailBody">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="emailBody"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.emailBody as string) || "";
+            onUpdateConfig("emailBody", currentValue + template);
+          }}
+        >
           Body
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeTextarea
           disabled={disabled}
           id="emailBody"
@@ -95,9 +172,16 @@ function SendSlackMessageFields({
   return (
     <>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="slackChannel">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="slackChannel"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.slackChannel as string) || "";
+            onUpdateConfig("slackChannel", currentValue + template);
+          }}
+        >
           Channel
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="slackChannel"
@@ -107,9 +191,16 @@ function SendSlackMessageFields({
         />
       </div>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="slackMessage">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="slackMessage"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.slackMessage as string) || "";
+            onUpdateConfig("slackMessage", currentValue + template);
+          }}
+        >
           Message
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeTextarea
           disabled={disabled}
           id="slackMessage"
@@ -136,9 +227,16 @@ function CreateTicketFields({
   return (
     <>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="ticketTitle">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="ticketTitle"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.ticketTitle as string) || "";
+            onUpdateConfig("ticketTitle", currentValue + template);
+          }}
+        >
           Ticket Title
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="ticketTitle"
@@ -148,9 +246,16 @@ function CreateTicketFields({
         />
       </div>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="ticketDescription">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="ticketDescription"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.ticketDescription as string) || "";
+            onUpdateConfig("ticketDescription", currentValue + template);
+          }}
+        >
           Description
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeTextarea
           disabled={disabled}
           id="ticketDescription"
@@ -198,9 +303,16 @@ function FindIssuesFields({
   return (
     <>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="linearAssigneeId">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="linearAssigneeId"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.linearAssigneeId as string) || "";
+            onUpdateConfig("linearAssigneeId", currentValue + template);
+          }}
+        >
           Assignee (User ID)
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="linearAssigneeId"
@@ -210,9 +322,16 @@ function FindIssuesFields({
         />
       </div>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="linearTeamId">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="linearTeamId"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.linearTeamId as string) || "";
+            onUpdateConfig("linearTeamId", currentValue + template);
+          }}
+        >
           Team ID (optional)
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="linearTeamId"
@@ -244,9 +363,16 @@ function FindIssuesFields({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label className="ml-1" htmlFor="linearLabel">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="linearLabel"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.linearLabel as string) || "";
+            onUpdateConfig("linearLabel", currentValue + template);
+          }}
+        >
           Label (optional)
-        </Label>
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="linearLabel"
@@ -344,7 +470,15 @@ function HttpRequestFields({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="endpoint">URL</Label>
+        <LabelWithVariablePicker
+          htmlFor="endpoint"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.endpoint as string) || "";
+            onUpdateConfig("endpoint", currentValue + template);
+          }}
+        >
+          URL
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="endpoint"
@@ -408,11 +542,32 @@ function GenerateTextFields({
   config,
   onUpdateConfig,
   disabled,
+  upstreamNodes,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
+  upstreamNodes: WorkflowNode[];
 }) {
+  const promptSource = (config?.aiPromptSource as string) || "none";
+  const textCards = upstreamNodes.filter(
+    (node) =>
+      node.data.type === "action" &&
+      node.data.config?.actionType === "Content Card"
+  );
+
+  const handlePromptSourceChange = (value: string) => {
+    if (value === "none") {
+      onUpdateConfig("aiPromptSource", "");
+      return;
+    }
+
+    onUpdateConfig("aiPromptSource", value);
+    const card = textCards.find((node) => node.id === value);
+    const nodeLabel = card?.data.label || "Content Card";
+    onUpdateConfig("aiPrompt", `{{@${value}:${nodeLabel}.prompt}}`);
+  };
+
   return (
     <>
       <div className="space-y-2">
@@ -444,7 +599,37 @@ function GenerateTextFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="aiPrompt">Prompt</Label>
+        <Label className="ml-1" htmlFor="aiPromptSource">
+          Shared Prompt (optional)
+        </Label>
+        <Select
+          disabled={disabled}
+          onValueChange={handlePromptSourceChange}
+          value={promptSource}
+        >
+          <SelectTrigger className="w-full" id="aiPromptSource">
+            <SelectValue placeholder="Select a Content Card" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {textCards.map((node) => (
+              <SelectItem key={node.id} value={node.id}>
+                {node.data.label || "Content Card"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          htmlFor="aiPrompt"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.aiPrompt as string) || "";
+            onUpdateConfig("aiPrompt", currentValue + template);
+          }}
+        >
+          Prompt
+        </LabelWithVariablePicker>
         <TemplateBadgeTextarea
           disabled={disabled}
           id="aiPrompt"
@@ -479,13 +664,57 @@ function GenerateImageFields({
   config,
   onUpdateConfig,
   disabled,
+  upstreamNodes,
 }: {
   config: Record<string, unknown>;
   onUpdateConfig: (key: string, value: string) => void;
   disabled: boolean;
+  upstreamNodes: WorkflowNode[];
 }) {
+  const promptSource = (config?.imagePromptSource as string) || "none";
+
+  const textCards = upstreamNodes.filter(
+    (node) =>
+      node.data.type === "action" &&
+      node.data.config?.actionType === "Content Card"
+  );
+
+  const handlePromptSourceChange = (value: string) => {
+    if (value === "none") {
+      onUpdateConfig("imagePromptSource", "");
+      return;
+    }
+
+    onUpdateConfig("imagePromptSource", value);
+    const card = textCards.find((node) => node.id === value);
+    const nodeLabel = card?.data.label || "Content Card";
+    onUpdateConfig("imagePrompt", `{{@${value}:${nodeLabel}.prompt}}`);
+  };
+
   return (
     <>
+      <div className="space-y-2">
+        <Label className="ml-1" htmlFor="imagePromptSource">
+          Shared Prompt (optional)
+        </Label>
+        <Select
+          disabled={disabled}
+          onValueChange={handlePromptSourceChange}
+          value={promptSource}
+        >
+          <SelectTrigger className="w-full" id="imagePromptSource">
+            <SelectValue placeholder="Select a Content Card" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {textCards.map((node) => (
+              <SelectItem key={node.id} value={node.id}>
+                {node.data.label || "Content Card"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="imageModel">Model</Label>
         <AiGatewayModelSelect
@@ -499,7 +728,15 @@ function GenerateImageFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="imagePrompt">Prompt</Label>
+        <LabelWithVariablePicker
+          htmlFor="imagePrompt"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.imagePrompt as string) || "";
+            onUpdateConfig("imagePrompt", currentValue + template);
+          }}
+        >
+          Prompt
+        </LabelWithVariablePicker>
         <TemplateBadgeTextarea
           disabled={disabled}
           id="imagePrompt"
@@ -509,6 +746,352 @@ function GenerateImageFields({
           value={(config?.imagePrompt as string) || ""}
         />
       </div>
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          htmlFor="imageReference"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.imageReference as string) || "";
+            onUpdateConfig("imageReference", currentValue + template);
+          }}
+        >
+          Reference Image (optional)
+        </LabelWithVariablePicker>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="imageReference"
+          onChange={(value) => onUpdateConfig("imageReference", value)}
+          placeholder="Paste a URL, base64 string, or template reference to reuse an existing image."
+          rows={3}
+          value={(config?.imageReference as string) || ""}
+        />
+      </div>
+    </>
+  );
+}
+
+// Content Card fields component
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handles multiple content card sources and preview states in one UI section
+function ContentCardFields({
+  config,
+  onUpdateConfig,
+  onUpdateConfigBatch,
+  disabled,
+  upstreamNodes,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  onUpdateConfigBatch?: (updates: Record<string, unknown>) => void;
+  disabled: boolean;
+  upstreamNodes: WorkflowNode[];
+}) {
+  const cardType = (config?.cardType as string) || "text";
+  const imageSourceType = (config?.imageSourceType as string) || "url";
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
+
+  const upstreamImageNodes = upstreamNodes.filter((node) => {
+    const triggerType = node.data.config?.triggerType as string | undefined;
+    return (
+      node.data.type === "action" ||
+      (node.data.type === "trigger" &&
+        (triggerType === "Webhook" || triggerType === "Websocket"))
+    );
+  });
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setUploadedFileName(file.name);
+    setIsUploading(true);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        // Store the complete data URL (includes mime type)
+        if (onUpdateConfigBatch) {
+          onUpdateConfigBatch({
+            imageBase64: result,
+            cardType: "image",
+            imageUrl: "",
+            imageSourceType: "upload",
+            uploadedFileName: file.name,
+          });
+        } else {
+          onUpdateConfig("imageBase64", result);
+          onUpdateConfig("cardType", "image");
+          onUpdateConfig("imageUrl", "");
+          onUpdateConfig("imageSourceType", "upload");
+          onUpdateConfig("uploadedFileName", file.name);
+        }
+      }
+      setIsUploading(false);
+    };
+
+    reader.onerror = (error) => {
+      console.error("Error reading file:", error);
+      setIsUploading(false);
+      setUploadedFileName("");
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpstreamImageSelect = (nodeId: string) => {
+    if (nodeId === "none") {
+      if (onUpdateConfigBatch) {
+        onUpdateConfigBatch({
+          imageBase64: "",
+          imageUrl: "",
+          cardType: "image",
+          imageSourceType: "node",
+        });
+      } else {
+        onUpdateConfig("imageBase64", "");
+        onUpdateConfig("imageUrl", "");
+        onUpdateConfig("cardType", "image");
+        onUpdateConfig("imageSourceType", "node");
+      }
+      return;
+    }
+
+    const node = upstreamImageNodes.find((n) => n.id === nodeId);
+    const nodeLabel = node?.data.label || "Node";
+    const field =
+      node?.data.config?.actionType === "Content Card" ? "image" : "base64";
+
+    if (onUpdateConfigBatch) {
+      onUpdateConfigBatch({
+        imageBase64: `{{@${nodeId}:${nodeLabel}.${field}}}`,
+        imageUrl: "",
+        cardType: "image",
+        imageSourceType: "node",
+      });
+    } else {
+      onUpdateConfig("imageBase64", `{{@${nodeId}:${nodeLabel}.${field}}}`);
+      onUpdateConfig("imageUrl", "");
+      onUpdateConfig("cardType", "image");
+      onUpdateConfig("imageSourceType", "node");
+    }
+  };
+
+  const previewSrc = getContentCardPreviewSrc(config);
+
+  // Get filename from config or state
+  const displayFileName =
+    (config?.uploadedFileName as string) || uploadedFileName;
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label className="ml-1" htmlFor="cardType">
+          Card Type
+        </Label>
+        <Select
+          disabled={disabled}
+          onValueChange={(value) => onUpdateConfig("cardType", value)}
+          value={cardType}
+        >
+          <SelectTrigger className="w-full" id="cardType">
+            <SelectValue placeholder="Select type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text">Text</SelectItem>
+            <SelectItem value="image">Image</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="cardPrompt"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.cardPrompt as string) || "";
+            onUpdateConfig("cardPrompt", currentValue + template);
+          }}
+        >
+          Shared Prompt
+        </LabelWithVariablePicker>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="cardPrompt"
+          onChange={(value) => onUpdateConfig("cardPrompt", value)}
+          placeholder="Describe the text or image you want to reuse across steps."
+          rows={4}
+          value={(config?.cardPrompt as string) || ""}
+        />
+      </div>
+      {(cardType === "image" || previewSrc) && (
+        <>
+          <div className="space-y-2">
+            <Label className="ml-1" htmlFor="imageSourceType">
+              Image Source
+            </Label>
+            <Select
+              disabled={disabled}
+              onValueChange={(value) =>
+                onUpdateConfig("imageSourceType", value)
+              }
+              value={imageSourceType}
+            >
+              <SelectTrigger className="w-full" id="imageSourceType">
+                <SelectValue placeholder="Select source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="url">URL</SelectItem>
+                <SelectItem value="base64">Base64 / Template</SelectItem>
+                <SelectItem value="upload">Upload</SelectItem>
+                <SelectItem value="node">From previous step</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {imageSourceType === "url" && (
+            <div className="space-y-2">
+              <LabelWithVariablePicker
+                className="ml-1"
+                htmlFor="imageUrl"
+                onVariableSelect={(template) => {
+                  const currentValue = (config?.imageUrl as string) || "";
+                  onUpdateConfig("imageUrl", currentValue + template);
+                }}
+              >
+                Image URL
+              </LabelWithVariablePicker>
+              <TemplateBadgeInput
+                disabled={disabled}
+                id="imageUrl"
+                onChange={(value) => onUpdateConfig("imageUrl", value)}
+                placeholder="https://example.com/image.png or {{Node.imageUrl}}"
+                value={(config?.imageUrl as string) || ""}
+              />
+            </div>
+          )}
+          {imageSourceType === "base64" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <LabelWithVariablePicker
+                  className="ml-1"
+                  htmlFor="imageBase64"
+                  onVariableSelect={(template) => {
+                    const currentValue = (config?.imageBase64 as string) || "";
+                    onUpdateConfig("imageBase64", currentValue + template);
+                  }}
+                >
+                  Image Data (base64)
+                </LabelWithVariablePicker>
+                <Button
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    const value = (config?.imageBase64 as string) || "";
+                    if (!value) {
+                      return;
+                    }
+                    navigator.clipboard.writeText(value);
+                    toast.success("Base64 copied to clipboard");
+                  }}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <Copy className="mr-1 size-3" />
+                  Copy
+                </Button>
+              </div>
+              <TemplateBadgeTextarea
+                className="max-h-[200px] min-h-[80px]"
+                disabled={disabled}
+                id="imageBase64"
+                onChange={(value) => onUpdateConfig("imageBase64", value)}
+                placeholder="Paste a base64 string or template reference."
+                rows={3}
+                value={(config?.imageBase64 as string) || ""}
+              />
+            </div>
+          )}
+          {imageSourceType === "upload" && (
+            <div className="space-y-2">
+              <Label className="ml-1" htmlFor="imageUpload">
+                Upload image
+              </Label>
+              <Input
+                accept="image/*"
+                disabled={disabled || isUploading}
+                id="imageUpload"
+                onChange={handleFileUpload}
+                type="file"
+              />
+              {isUploading && (
+                <p className="text-muted-foreground text-xs">
+                  Uploading {displayFileName}...
+                </p>
+              )}
+              {!isUploading && displayFileName && (
+                <p className="text-muted-foreground text-xs">
+                  Uploaded: {displayFileName}
+                </p>
+              )}
+            </div>
+          )}
+          {imageSourceType === "node" && (
+            <div className="space-y-2">
+              <Label className="ml-1" htmlFor="imageNodeSource">
+                Select previous step
+              </Label>
+              <Select
+                disabled={disabled}
+                onValueChange={handleUpstreamImageSelect}
+                value="none"
+              >
+                <SelectTrigger className="w-full" id="imageNodeSource">
+                  <SelectValue placeholder="Choose a previous step" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {upstreamImageNodes.map((node) => (
+                    <SelectItem key={node.id} value={node.id}>
+                      {node.data.label || "Step"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                Pulling image/base64 output from the selected step.
+              </p>
+            </div>
+          )}
+          {previewSrc && (
+            <div className="space-y-2">
+              <Label className="ml-1">Preview</Label>
+              <div className="relative h-32 w-full overflow-hidden rounded-md border">
+                <div className="relative h-full w-full">
+                  <NextImage
+                    alt="Preview"
+                    className="object-cover"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 400px"
+                    src={previewSrc}
+                    unoptimized
+                  />
+                </div>
+              </div>
+              <TemplateBadgeTextarea
+                disabled
+                id="imagePreviewValue"
+                rows={3}
+                value={(() => {
+                  const val =
+                    (config?.imageBase64 as string) ||
+                    (config?.imageUrl as string) ||
+                    "";
+                  return val.length > 100 ? `${val.slice(0, 100)}...` : val;
+                })()}
+              />
+            </div>
+          )}
+        </>
+      )}
     </>
   );
 }
@@ -525,7 +1108,15 @@ function ConditionFields({
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="condition">Condition Expression</Label>
+      <LabelWithVariablePicker
+        htmlFor="condition"
+        onVariableSelect={(template) => {
+          const currentValue = (config?.condition as string) || "";
+          onUpdateConfig("condition", currentValue + template);
+        }}
+      >
+        Condition Expression
+      </LabelWithVariablePicker>
       <TemplateBadgeInput
         disabled={disabled}
         id="condition"
@@ -553,7 +1144,15 @@ function ScrapeFields({
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="url">URL</Label>
+      <LabelWithVariablePicker
+        htmlFor="url"
+        onVariableSelect={(template) => {
+          const currentValue = (config?.url as string) || "";
+          onUpdateConfig("url", currentValue + template);
+        }}
+      >
+        URL
+      </LabelWithVariablePicker>
       <TemplateBadgeInput
         disabled={disabled}
         id="url"
@@ -578,7 +1177,15 @@ function SearchFields({
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="query">Search Query</Label>
+        <LabelWithVariablePicker
+          htmlFor="query"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.query as string) || "";
+            onUpdateConfig("query", currentValue + template);
+          }}
+        >
+          Search Query
+        </LabelWithVariablePicker>
         <TemplateBadgeInput
           disabled={disabled}
           id="query"
@@ -606,6 +1213,7 @@ function SearchFields({
 const ACTION_CATEGORIES = {
   System: ["HTTP Request", "Database Query", "Condition"],
   "AI Gateway": ["Generate Text", "Generate Image"],
+  Content: ["Content Card"],
   Firecrawl: ["Scrape", "Search"],
   Linear: ["Create Ticket", "Find Issues"],
   Resend: ["Send Email"],
@@ -628,15 +1236,23 @@ const getCategoryForAction = (actionType: string): ActionCategory | null => {
 export function ActionConfig({
   config,
   onUpdateConfig,
+  onUpdateConfigBatch,
   disabled,
 }: ActionConfigProps) {
   const [_workflowId] = useAtom(currentWorkflowIdAtom);
   const [_workflowName] = useAtom(currentWorkflowNameAtom);
+  const nodes = useAtomValue(nodesAtom);
+  const edges = useAtomValue(edgesAtom);
+  const selectedNodeId = useAtomValue(selectedNodeAtom);
 
   const actionType = (config?.actionType as string) || "";
   const selectedCategory = actionType ? getCategoryForAction(actionType) : null;
   const [category, setCategory] = useState<ActionCategory | "">(
     selectedCategory || ""
+  );
+  const upstreamNodes = useMemo(
+    () => getUpstreamNodes(nodes, edges, selectedNodeId),
+    [nodes, edges, selectedNodeId]
   );
 
   // Sync category state when actionType changes (e.g., when switching nodes)
@@ -644,6 +1260,18 @@ export function ActionConfig({
     const newCategory = actionType ? getCategoryForAction(actionType) : null;
     setCategory(newCategory || "");
   }, [actionType]);
+
+  useEffect(() => {
+    if (actionType === "Content Card" && !config.cardType) {
+      onUpdateConfig("cardType", "text");
+    }
+  }, [actionType, config.cardType, onUpdateConfig]);
+
+  useEffect(() => {
+    if (actionType === "Content Card" && !config.imageSourceType) {
+      onUpdateConfig("imageSourceType", "url");
+    }
+  }, [actionType, config.imageSourceType, onUpdateConfig]);
 
   const handleCategoryChange = (newCategory: ActionCategory) => {
     setCategory(newCategory);
@@ -684,6 +1312,12 @@ export function ActionConfig({
                 <div className="flex items-center gap-2">
                   <IntegrationIcon className="size-4" integration="vercel" />
                   <span>AI Gateway</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="Content">
+                <div className="flex items-center gap-2">
+                  <StickyNote className="size-4" />
+                  <span>Content</span>
                 </div>
               </SelectItem>
               <SelectItem value="Linear">
@@ -798,6 +1432,7 @@ export function ActionConfig({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          upstreamNodes={upstreamNodes}
         />
       )}
 
@@ -807,6 +1442,18 @@ export function ActionConfig({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+          upstreamNodes={upstreamNodes}
+        />
+      )}
+
+      {/* Content Card fields */}
+      {config?.actionType === "Content Card" && (
+        <ContentCardFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+          onUpdateConfigBatch={onUpdateConfigBatch}
+          upstreamNodes={upstreamNodes}
         />
       )}
 

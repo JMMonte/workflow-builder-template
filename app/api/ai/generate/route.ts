@@ -184,6 +184,7 @@ Action types:
 - HTTP Request: {"actionType": "HTTP Request", "httpMethod": "POST", "endpoint": "https://api.example.com", "httpHeaders": "{}", "httpBody": "{}"}
 - Generate Text: {"actionType": "Generate Text", "aiModel": "meta/llama-4-scout", "aiFormat": "text", "aiPrompt": "Your prompt here"}
 - Generate Image: {"actionType": "Generate Image", "imageModel": "google/imagen-4.0-generate", "imagePrompt": "Image description"}
+- Content Card: {"actionType": "Content Card", "cardType": "text", "cardPrompt": "Shared prompt", "imageSourceType": "url", "imageUrl": "https://example.com/image.png"}
 - Scrape: {"actionType": "Scrape", "url": "https://example.com"}
 - Search: {"actionType": "Search", "query": "search query", "limit": 10}
 - Condition: {"actionType": "Condition", "condition": "{{@nodeId:Label.field}} === 'value'"}
