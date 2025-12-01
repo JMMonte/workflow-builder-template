@@ -420,7 +420,7 @@ export function WorkflowCanvas() {
 
   return (
     <div
-      className="relative h-full w-full bg-background"
+      className="pointer-events-auto relative h-full w-full bg-background"
       style={{
         opacity: isCanvasReady ? 1 : 0,
         transition: "opacity 300ms",

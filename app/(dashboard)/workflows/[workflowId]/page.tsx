@@ -700,10 +700,10 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
   }, [selectedExecutionId, updateNodeData]);
 
   return (
-    <div className="pointer-events-none flex h-dvh w-full flex-col overflow-hidden">
+    <>
       {/* Workflow not found overlay */}
       {workflowNotFound && (
-        <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center">
+        <div className="pointer-events-auto fixed inset-0 z-20 flex items-center justify-center">
           <div className="rounded-lg border bg-background p-8 text-center shadow-lg">
             <h1 className="mb-2 font-semibold text-2xl">Workflow Not Found</h1>
             <p className="mb-6 text-muted-foreground">
@@ -719,7 +719,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
       {/* Expand button when panel is collapsed */}
       {!isMobile && panelCollapsed && (
         <button
-          className="-translate-y-1/2 pointer-events-auto absolute top-1/2 right-0 z-20 flex size-6 items-center justify-center rounded-l-full border border-r-0 bg-background shadow-sm transition-colors hover:bg-muted"
+          className="-translate-y-1/2 pointer-events-auto fixed top-1/2 right-0 z-20 flex size-6 items-center justify-center rounded-l-full border border-r-0 bg-background shadow-sm transition-colors hover:bg-muted"
           onClick={() => {
             setIsPanelAnimating(true);
             setPanelCollapsed(false);
@@ -734,7 +734,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
       {/* Right panel overlay (desktop only) */}
       {!isMobile && (
         <div
-          className="pointer-events-auto absolute inset-y-0 right-0 z-20 border-l bg-background transition-transform duration-300 ease-out"
+          className="pointer-events-auto fixed inset-y-0 right-0 z-20 border-l bg-background transition-transform duration-300 ease-out"
           style={{
             width: `${panelWidth}%`,
             transform:
@@ -775,7 +775,7 @@ const WorkflowEditor = ({ params }: WorkflowPageProps) => {
           <NodeConfigPanel />
         </div>
       )}
-    </div>
+    </>
   );
 };
 

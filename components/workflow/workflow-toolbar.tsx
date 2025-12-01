@@ -1265,6 +1265,16 @@ function WorkflowDialogsComponent({
 export const WorkflowToolbar = ({ workflowId }: WorkflowToolbarProps) => {
   const state = useWorkflowState();
   const actions = useWorkflowActions(state);
+  const [mounted, setMounted] = useState(false);
+
+  // Only render on client to prevent hydration mismatches with Radix UI
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <>

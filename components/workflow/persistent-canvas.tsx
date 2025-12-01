@@ -63,7 +63,7 @@ export function PersistentCanvas() {
 
   return (
     <div
-      className="fixed inset-y-0 right-0 z-0"
+      className="pointer-events-auto fixed inset-y-0 right-0 z-0"
       style={{
         left: sidebarWidth,
         right: rightPanelWidth ?? 0,

@@ -467,10 +467,9 @@ export function AppShell({ children }: AppShellProps) {
         <div className="flex min-h-screen flex-1 flex-col overflow-hidden">
           <main
             className={cn(
-              "flex-1 overflow-y-auto px-4 py-6 md:px-8",
               isWorkflowDetail
-                ? "pointer-events-none bg-transparent"
-                : "pointer-events-auto"
+                ? "pointer-events-none fixed inset-0 bg-transparent"
+                : "flex-1 overflow-y-auto px-4 py-6 md:px-8 pointer-events-auto"
             )}
           >
             <Button

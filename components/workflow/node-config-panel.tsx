@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -957,6 +957,17 @@ export const PanelInner = () => {
   );
 };
 export const NodeConfigPanel = () => {
+  const [mounted, setMounted] = useState(false);
+
+  // Only render on client to prevent hydration mismatches with Radix UI
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
   return (
     <>
       {/* Mobile: Drawer */}
