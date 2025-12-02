@@ -3,6 +3,7 @@
  * Replaces server actions with API endpoints
  */
 
+import type { UsageSummaryResponse } from "./usage-types";
 import type { WorkflowRun, WorkflowRunLog } from "./workflow-run";
 import type {
   WorkflowEdge,
@@ -959,6 +960,11 @@ export const workflowApi = {
   })(),
 };
 
+// Usage API
+export const usageApi = {
+  get: () => apiCall<UsageSummaryResponse>("/api/usage"),
+};
+
 // Export all APIs as a single object
 export const api = {
   ai: aiApi,
@@ -967,4 +973,5 @@ export const api = {
   team: teamApi,
   user: userApi,
   workflow: workflowApi,
+  usage: usageApi,
 };

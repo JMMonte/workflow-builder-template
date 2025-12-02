@@ -2,6 +2,7 @@
 
 import { useAtomValue } from "jotai";
 import {
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -51,6 +52,12 @@ const NAV_ITEMS: NavItem[] = [
     description: "Review and open team workflows.",
     href: "/workflows",
     icon: WorkflowIcon,
+  },
+  {
+    label: "Usage",
+    description: "Track run activity across agents and blocks.",
+    href: "/usage",
+    icon: BarChart3,
   },
   {
     label: "Integrations",
@@ -464,7 +471,7 @@ export function AppShell({ children }: AppShellProps) {
           width={sidebarWidth}
         />
 
-        <div className="flex min-h-screen flex-1 flex-col overflow-hidden">
+        <div className="flex h-screen flex-1 flex-col">
           <main
             className={cn(
               isWorkflowDetail

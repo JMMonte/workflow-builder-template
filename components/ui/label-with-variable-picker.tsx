@@ -1,6 +1,6 @@
 "use client";
 
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import { Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { edgesAtom, nodesAtom, selectedNodeAtom, type WorkflowNode } from "@/lib/workflow-store";
+import { normalizeTemplateVariables } from "@/lib/utils/template";
 
 type SchemaField = {
   name: string;
@@ -231,9 +232,9 @@ export function LabelWithVariablePicker({
   onVariableSelect,
   className,
 }: LabelWithVariablePickerProps) {
-  const [nodes] = useAtom(nodesAtom);
-  const [edges] = useAtom(edgesAtom);
-  const [selectedNodeId] = useAtom(selectedNodeAtom);
+  const nodes = useAtomValue(nodesAtom);
+  const edges = useAtomValue(edgesAtom);
+  const selectedNodeId = useAtomValue(selectedNodeAtom);
   const [open, setOpen] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -312,7 +313,8 @@ export function LabelWithVariablePicker({
     : options;
 
   const handleSelect = (template: string) => {
-    onVariableSelect(template);
+    const normalized = normalizeTemplateVariables(template, upstreamNodes);
+    onVariableSelect(normalized);
     setOpen(false);
     setSearchFilter("");
   };

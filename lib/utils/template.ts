@@ -4,9 +4,12 @@
  * New format: {{@nodeId:DisplayName.field}} for ID-based references with display names
  */
 
+import type { WorkflowEdge, WorkflowNode } from "@/lib/workflow-store";
+
 // Regex constants for performance
 const TEMPLATE_PATTERN = /\{\{([^}]+)\}\}/g;
 const ARRAY_ACCESS_PATTERN = /^([^[]+)\[(\d+)\]$/;
+const NAME_SANITIZE_REGEX = /[^a-zA-Z0-9]/g;
 
 export type NodeOutputs = {
   [nodeId: string]: {
@@ -503,4 +506,193 @@ function extractFields(
       });
     }
   }
+}
+
+function splitTemplateExpression(expression: string): {
+  name: string;
+  suffix: string;
+} {
+  const dotIndex = expression.indexOf(".");
+  const bracketIndex = expression.indexOf("[");
+
+  let separatorIndex = -1;
+  if (dotIndex === -1) {
+    separatorIndex = bracketIndex;
+  } else if (bracketIndex === -1) {
+    separatorIndex = dotIndex;
+  } else {
+    separatorIndex = Math.min(dotIndex, bracketIndex);
+  }
+
+  if (separatorIndex === -1) {
+    return { name: expression.trim(), suffix: "" };
+  }
+
+  return {
+    name: expression.slice(0, separatorIndex).trim(),
+    suffix: expression.slice(separatorIndex),
+  };
+}
+
+function normalizeReferenceName(name: string): string {
+  return name.toLowerCase().replace(NAME_SANITIZE_REGEX, "");
+}
+
+export function getNodeDisplayName(node: WorkflowNode): string {
+  if (node.data.label) {
+    return node.data.label;
+  }
+
+  if (node.data.type === "action") {
+    const actionType = node.data.config?.actionType as string | undefined;
+    return actionType || "HTTP Request";
+  }
+
+  if (node.data.type === "trigger") {
+    const triggerType = node.data.config?.triggerType as string | undefined;
+    return triggerType || "Manual";
+  }
+
+  return "Node";
+}
+
+function findNodeByReferenceName(
+  referenceName: string,
+  nodes: WorkflowNode[]
+): WorkflowNode | undefined {
+  const normalized = normalizeReferenceName(referenceName);
+
+  const exactMatch = nodes.find((node) => {
+    const displayName = getNodeDisplayName(node);
+    return (
+      normalizeReferenceName(displayName) === normalized ||
+      normalizeReferenceName(node.data.label || "") === normalized ||
+      normalizeReferenceName(node.id) === normalized
+    );
+  });
+
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  return nodes.find((node) => {
+    const displayName = normalizeReferenceName(getNodeDisplayName(node));
+    const labelName = normalizeReferenceName(node.data.label || "");
+
+    return (
+      displayName.startsWith(normalized) ||
+      labelName.startsWith(normalized) ||
+      normalizeReferenceName(node.id).startsWith(normalized)
+    );
+  });
+}
+
+function formatTemplateReference(
+  nodeId: string,
+  node: WorkflowNode | undefined,
+  suffix: string
+): string | null {
+  if (!node) {
+    return null;
+  }
+  return `{{@${nodeId}:${getNodeDisplayName(node)}${suffix}}}`;
+}
+
+function resolveTemplateExpression(
+  match: string,
+  expression: string,
+  availableNodes: WorkflowNode[]
+): string {
+  if (!expression) {
+    return match;
+  }
+
+  if (expression.startsWith("@")) {
+    const afterAt = expression.slice(1);
+    const colonIndex = afterAt.indexOf(":");
+    if (colonIndex === -1) {
+      return match;
+    }
+
+    const nodeId = afterAt.slice(0, colonIndex);
+    const rest = afterAt.slice(colonIndex + 1);
+    const afterAtSplit = splitTemplateExpression(rest);
+    const node = availableNodes.find((candidate) => candidate.id === nodeId);
+    return formatTemplateReference(nodeId, node, afterAtSplit.suffix) ?? match;
+  }
+
+  if (expression.startsWith("$")) {
+    const withoutDollar = expression.slice(1);
+    const dollarSplit = splitTemplateExpression(withoutDollar);
+    const node = availableNodes.find(
+      (candidate) => candidate.id === dollarSplit.name
+    );
+    return (
+      formatTemplateReference(dollarSplit.name, node, dollarSplit.suffix) ??
+      match
+    );
+  }
+
+  const expressionSplit = splitTemplateExpression(expression);
+  const node = findNodeByReferenceName(expressionSplit.name, availableNodes);
+
+  return (
+    formatTemplateReference(
+      expressionSplit.name,
+      node,
+      expressionSplit.suffix
+    ) ?? match
+  );
+}
+
+function getAvailableNodesForTemplates(
+  nodes: WorkflowNode[],
+  options?: { edges?: WorkflowEdge[]; currentNodeId?: string | null }
+): WorkflowNode[] {
+  if (!(options?.edges && options.currentNodeId)) {
+    return nodes;
+  }
+
+  const { edges, currentNodeId } = options;
+  const visited = new Set<string>();
+  const upstreamIds = new Set<string>();
+
+  const traverse = (nodeId: string) => {
+    if (visited.has(nodeId)) {
+      return;
+    }
+    visited.add(nodeId);
+
+    const incomingEdges = edges.filter((edge) => edge.target === nodeId);
+    for (const edge of incomingEdges) {
+      upstreamIds.add(edge.source);
+      traverse(edge.source);
+    }
+  };
+
+  traverse(currentNodeId);
+
+  return nodes.filter((node) => upstreamIds.has(node.id));
+}
+
+/**
+ * Normalize template variables to the ID-based format used across the workflow UI.
+ * Converts legacy label-based ({{Node.label}}) or $id references to {{@nodeId:DisplayName}}
+ * and refreshes display names to match the current node labels.
+ */
+export function normalizeTemplateVariables(
+  input: string,
+  nodes: WorkflowNode[],
+  options?: { edges?: WorkflowEdge[]; currentNodeId?: string | null }
+): string {
+  if (!input || typeof input !== "string" || nodes.length === 0) {
+    return input;
+  }
+
+  const availableNodes = getAvailableNodesForTemplates(nodes, options);
+
+  return input.replace(TEMPLATE_PATTERN, (match, rawExpression) => {
+    const expression = String(rawExpression).trim();
+    return resolveTemplateExpression(match, expression, availableNodes);
+  });
 }

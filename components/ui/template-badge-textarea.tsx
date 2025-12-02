@@ -1,9 +1,18 @@
 "use client";
 
-import { useAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useAtomValue } from "jotai";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { nodesAtom, selectedNodeAtom } from "@/lib/workflow-store";
+import {
+  edgesAtom,
+  nodesAtom,
+  selectedNodeAtom,
+  type WorkflowNode,
+} from "@/lib/workflow-store";
+import {
+  getNodeDisplayName,
+  normalizeTemplateVariables,
+} from "@/lib/utils/template";
 import { TemplateAutocomplete } from "./template-autocomplete";
 
 export interface TemplateBadgeTextareaProps {
@@ -17,7 +26,10 @@ export interface TemplateBadgeTextareaProps {
 }
 
 // Helper to get display text from template by looking up current node label
-function getDisplayTextForTemplate(template: string, nodes: ReturnType<typeof useAtom<typeof nodesAtom>>[0]): string {
+function getDisplayTextForTemplate(
+  template: string,
+  nodes: WorkflowNode[]
+): string {
   // Extract nodeId and field from template: {{@nodeId:OldLabel.field}}
   const match = template.match(/\{\{@([^:]+):([^}]+)\}\}/);
   if (!match) return template;
@@ -27,29 +39,23 @@ function getDisplayTextForTemplate(template: string, nodes: ReturnType<typeof us
   
   // Find the current node
   const node = nodes.find((n) => n.id === nodeId);
+  const dotIndex = rest.indexOf(".");
+  
   if (!node) {
-    // Node not found, return as-is
     return rest;
   }
-  
-  // Replace old label with current label
-  const currentLabel = node.data.label || "";
-  const dotIndex = rest.indexOf(".");
+
+  const displayLabel = getNodeDisplayName(node);
   
   if (dotIndex === -1) {
     // No field, just the node: {{@nodeId:Label}}
-    return currentLabel || rest;
+    return displayLabel || rest;
   }
   
   // Has field: {{@nodeId:Label.field}}
   const field = rest.substring(dotIndex + 1);
   
-  // If currentLabel is empty, fall back to the original label from the template
-  if (!currentLabel) {
-    return rest;
-  }
-  
-  return `${currentLabel}.${field}`;
+  return `${displayLabel || rest.substring(0, dotIndex)}.${field}`;
 }
 
 /**
@@ -69,8 +75,18 @@ export function TemplateBadgeTextarea({
   const contentRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState(value);
   const shouldUpdateDisplay = useRef(true);
-  const [selectedNodeId] = useAtom(selectedNodeAtom);
-  const [nodes] = useAtom(nodesAtom);
+  const selectedNodeId = useAtomValue(selectedNodeAtom);
+  const nodes = useAtomValue(nodesAtom);
+  const edges = useAtomValue(edgesAtom);
+
+  const normalizeValue = useCallback(
+    (input: string) =>
+      normalizeTemplateVariables(input, nodes, {
+        edges,
+        currentNodeId: selectedNodeId,
+      }),
+    [edges, nodes, selectedNodeId]
+  );
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -81,11 +97,16 @@ export function TemplateBadgeTextarea({
 
   // Update internal value when prop changes from outside
   useEffect(() => {
-    if (value !== internalValue && !isFocused) {
-      setInternalValue(value);
+    if (isFocused) {
+      return;
+    }
+
+    const normalized = normalizeValue(value);
+    if (normalized !== internalValue) {
+      setInternalValue(normalized);
       shouldUpdateDisplay.current = true;
     }
-  }, [value, isFocused, internalValue]);
+  }, [value, isFocused, internalValue, normalizeValue]);
 
   // Update display when nodes change (to reflect label updates)
   useEffect(() => {
@@ -383,13 +404,14 @@ export function TemplateBadgeTextarea({
   const handleInput = () => {
     // Extract the value from DOM
     const newValue = extractValue();
+    const normalizedValue = normalizeValue(newValue);
     
-    console.log("[Textarea] handleInput: newValue:", newValue);
+    console.log("[Textarea] handleInput: newValue:", normalizedValue);
     console.log("[Textarea] handleInput: internalValue:", internalValue);
     console.log("[Textarea] handleInput: DOM innerHTML:", contentRef.current?.innerHTML);
     
     // Check if the value has changed
-    if (newValue === internalValue) {
+    if (normalizedValue === internalValue) {
       // No change, ignore (this can happen with badge clicks, etc)
       console.log("[Textarea] handleInput: No change detected, ignoring");
       return;
@@ -397,15 +419,15 @@ export function TemplateBadgeTextarea({
     
     // Count templates in old and new values
     const oldTemplates = (internalValue.match(/\{\{@([^:]+):([^}]+)\}\}/g) || []).length;
-    const newTemplates = (newValue.match(/\{\{@([^:]+):([^}]+)\}\}/g) || []).length;
+    const newTemplates = (normalizedValue.match(/\{\{@([^:]+):([^}]+)\}\}/g) || []).length;
     
     console.log("[Textarea] handleInput: oldTemplates:", oldTemplates, "newTemplates:", newTemplates);
     
     if (newTemplates > oldTemplates) {
       // A new template was added, update display to show badge
       console.log("[Textarea] handleInput: New template added, rendering badge");
-      setInternalValue(newValue);
-      onChange?.(newValue);
+      setInternalValue(normalizedValue);
+      onChange?.(normalizedValue);
       shouldUpdateDisplay.current = true;
       setShowAutocomplete(false);
       
@@ -418,15 +440,15 @@ export function TemplateBadgeTextarea({
       // Same number of templates, just typing around existing badges
       // DON'T update display, just update the value
       console.log("[Textarea] handleInput: Typing around existing badges, NOT updating display");
-      setInternalValue(newValue);
-      onChange?.(newValue);
+      setInternalValue(normalizedValue);
+      onChange?.(normalizedValue);
       // Don't trigger display update - this prevents cursor reset!
       
       // Check for @ sign to show autocomplete (moved here so it works with existing badges)
-      const lastAtSign = newValue.lastIndexOf("@");
+      const lastAtSign = normalizedValue.lastIndexOf("@");
       
       if (lastAtSign !== -1) {
-        const filter = newValue.slice(lastAtSign + 1);
+        const filter = normalizedValue.slice(lastAtSign + 1);
         
         if (!filter.includes(" ") && !filter.includes("\n")) {
           setAutocompleteFilter(filter);
@@ -454,8 +476,8 @@ export function TemplateBadgeTextarea({
     if (newTemplates < oldTemplates) {
       // A template was removed (e.g., user deleted a badge or part of template text)
       console.log("[Textarea] handleInput: Template removed, updating display");
-      setInternalValue(newValue);
-      onChange?.(newValue);
+      setInternalValue(normalizedValue);
+      onChange?.(normalizedValue);
       shouldUpdateDisplay.current = true;
       requestAnimationFrame(() => updateDisplay());
       return;
@@ -463,14 +485,14 @@ export function TemplateBadgeTextarea({
     
     // Normal typing (no badges present)
     console.log("[Textarea] handleInput: Normal typing, no badges");
-    setInternalValue(newValue);
-    onChange?.(newValue);
+    setInternalValue(normalizedValue);
+    onChange?.(normalizedValue);
     
     // Check for @ sign to show autocomplete
-    const lastAtSign = newValue.lastIndexOf("@");
+    const lastAtSign = normalizedValue.lastIndexOf("@");
     
     if (lastAtSign !== -1) {
-      const filter = newValue.slice(lastAtSign + 1);
+      const filter = normalizedValue.slice(lastAtSign + 1);
       
       if (!filter.includes(" ") && !filter.includes("\n")) {
         setAutocompleteFilter(filter);
@@ -503,9 +525,11 @@ export function TemplateBadgeTextarea({
     const beforeAt = currentText.slice(0, atSignPosition);
     const afterFilter = currentText.slice(atSignPosition + 1 + autocompleteFilter.length);
     const newText = beforeAt + template + afterFilter;
+    const normalizedText = normalizeValue(newText);
+    const cursorAfterTemplate = normalizeValue(beforeAt + template).length;
     
     // Calculate where cursor should be after the template (right after the badge)
-    const targetCursorPosition = beforeAt.length + template.length;
+    const targetCursorPosition = cursorAfterTemplate;
     
     console.log("[Textarea] Autocomplete select:", {
       currentText,
@@ -518,8 +542,8 @@ export function TemplateBadgeTextarea({
       targetCursorPosition
     });
     
-    setInternalValue(newText);
-    onChange?.(newText);
+    setInternalValue(normalizedText);
+    onChange?.(normalizedText);
     shouldUpdateDisplay.current = true;
     
     setShowAutocomplete(false);
@@ -611,4 +635,3 @@ export function TemplateBadgeTextarea({
     </>
   );
 }
-
