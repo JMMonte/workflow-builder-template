@@ -526,7 +526,14 @@ function BlockUsageChartSection({
       return null;
     }
 
-    const blocksToShow = filteredBlocks.filter((block) => block.runs > 0);
+    // Deduplicate blocks by ID to avoid duplicate keys
+    const uniqueBlocksMap = new Map<string, typeof filteredBlocks[0]>();
+    for (const block of filteredBlocks) {
+      if (block.runs > 0 && !uniqueBlocksMap.has(block.id)) {
+        uniqueBlocksMap.set(block.id, block);
+      }
+    }
+    const blocksToShow = Array.from(uniqueBlocksMap.values());
 
     if (blocksToShow.length === 0) {
       return null;
