@@ -74,6 +74,20 @@ const getIntegrationFromActionType = (actionType: string): string => {
     "Send Slack Message": "Slack",
     "Create Ticket": "Linear",
     "Find Issues": "Linear",
+    "Send Gmail": "Google",
+    "Read Gmail": "Google",
+    "Create Google Calendar Event": "Google",
+    "List Google Calendar Events": "Google",
+    "Upload Drive File": "Google",
+    "Search Drive": "Google",
+    "Send Outlook Email": "Microsoft",
+    "Read Outlook Email": "Microsoft",
+    "Create Teams Message": "Microsoft",
+    "Upload OneDrive File": "Microsoft",
+    "Search OneDrive": "Microsoft",
+    "Create SharePoint Page": "Microsoft",
+    "Create Microsoft Event": "Microsoft",
+    "List Microsoft Events": "Microsoft",
     "HTTP Request": "System",
     "Database Query": "Database",
     "Generate Text": "AI Gateway",
@@ -109,6 +123,14 @@ const requiresIntegration = (actionType: string): boolean => {
     "Database Query",
     "Scrape",
     "Search",
+    "Send Gmail",
+    "Create Google Calendar Event",
+    "Upload Drive File",
+    "Send Outlook Email",
+    "Create Teams Message",
+    "Upload OneDrive File",
+    "Create SharePoint Page",
+    "Create Microsoft Event",
   ];
   return requiresIntegrationActions.includes(actionType);
 };
@@ -140,6 +162,22 @@ const getProviderLogo = (
     case "Generate Text":
     case "Generate Image":
       return <IntegrationIcon className="size-12" integration="vercel" />;
+    case "Send Gmail":
+    case "Read Gmail":
+    case "Create Google Calendar Event":
+    case "List Google Calendar Events":
+    case "Upload Drive File":
+    case "Search Drive":
+      return <IntegrationIcon className="size-12" integration="google" />;
+    case "Send Outlook Email":
+    case "Read Outlook Email":
+    case "Create Teams Message":
+    case "Upload OneDrive File":
+    case "Search OneDrive":
+    case "Create SharePoint Page":
+    case "Create Microsoft Event":
+    case "List Microsoft Events":
+      return <IntegrationIcon className="size-12" integration="microsoft" />;
     case "Content Card":
       return cardType === "image" ? (
         <ImageIcon className="size-12 text-blue-300" strokeWidth={1.5} />

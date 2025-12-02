@@ -1,6 +1,7 @@
 import { Database, Plug, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import MicrosoftColor from "@lobehub/icons/es/Microsoft/components/Color";
 
 interface IntegrationIconProps {
   integration:
@@ -11,6 +12,8 @@ interface IntegrationIconProps {
     | "database"
     | "ai-gateway"
     | "firecrawl"
+    | "google"
+    | "microsoft"
     | "custom";
   className?: string;
 }
@@ -64,6 +67,36 @@ function FirecrawlIcon({ className }: { className?: string }) {
   );
 }
 
+function GoogleGIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      height="12"
+      viewBox="0 0 48 48"
+      width="12"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.54 30.47 0 24 0 14.62 0 6.44 5.37 2.56 13.22l7.98 6.19C12.43 13.05 17.74 9.5 24 9.5Z"
+        fill="#EA4335"
+      />
+      <path
+        d="M46.5 24.5c0-1.36-.12-2.67-.34-3.93H24v7.44h12.65c-.55 2.9-2.17 5.36-4.61 7.03l7.2 5.6C43.6 36.14 46.5 30.79 46.5 24.5Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M10.54 28.39c-.48-1.44-.75-2.97-.75-4.49s.27-3.05.75-4.49l-7.98-6.19C.9 16.46 0 20.11 0 23.9s.9 7.44 2.56 10.68l7.98-6.19Z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M24 47.5c6.48 0 11.94-2.13 15.92-5.78l-7.2-5.6c-1.98 1.33-4.52 2.12-8.72 2.12-6.26 0-11.57-3.54-13.45-8.52l-7.98 6.19C6.44 42.63 14.62 47.5 24 47.5Z"
+        fill="#34A853"
+      />
+      <path d="M0 0h48v48H0z" fill="none" />
+    </svg>
+  );
+}
+
 export function IntegrationIcon({
   integration,
   className = "h-3 w-3",
@@ -92,6 +125,14 @@ export function IntegrationIcon({
 
   if (integration === "firecrawl") {
     return <FirecrawlIcon className={cn("text-foreground", className)} />;
+  }
+
+  if (integration === "google") {
+    return <GoogleGIcon className={className} />;
+  }
+
+  if (integration === "microsoft") {
+    return <MicrosoftColor className={className} />;
   }
 
   if (integration === "custom") {

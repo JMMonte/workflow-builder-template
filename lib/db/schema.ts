@@ -143,6 +143,8 @@ export const integrations = pgTable("integrations", {
       | "database"
       | "ai-gateway"
       | "firecrawl"
+      | "google"
+      | "microsoft"
       | "custom"
     >(),
   // biome-ignore lint/suspicious/noExplicitAny: JSONB type - encrypted credentials stored as JSON

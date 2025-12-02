@@ -19,7 +19,9 @@
   },
   "dependencies": {
     "@ai-sdk/provider": "^2.0.0",
+    "@icons-pack/react-simple-icons": "^13.8.0",
     "@linear/sdk": "^63.2.0",
+    "@lobehub/icons": "^2.43.1",
     "@mendable/firecrawl-js": "^4.6.2",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-context-menu": "^2.2.16",

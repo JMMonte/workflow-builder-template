@@ -1,6 +1,19 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import {
+  SiGmail,
+  SiGooglecalendar,
+  SiGoogledrive,
+} from "@icons-pack/react-simple-icons";
+import {
+  CalendarClock,
+  Check,
+  Cloud,
+  Mail,
+  Share2,
+  Trash2,
+  Users2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import {
   api,
   type CustomIntegrationField,
@@ -50,6 +64,8 @@ type IntegrationFormData = {
 const INTEGRATION_TYPES: IntegrationType[] = [
   "ai-gateway",
   "database",
+  "google",
+  "microsoft",
   "linear",
   "resend",
   "slack",
@@ -63,9 +79,60 @@ const INTEGRATION_LABELS: Record<IntegrationType, string> = {
   slack: "Slack",
   database: "Database",
   "ai-gateway": "AI Gateway",
+  google: "Google Workspace",
+  microsoft: "Microsoft 365",
   firecrawl: "Firecrawl",
   custom: "Custom",
 };
+
+const GOOGLE_SERVICE_OPTIONS = [
+  { id: "gmail", label: "Gmail", Icon: SiGmail, color: "#EA4335" },
+  { id: "drive", label: "Drive", Icon: SiGoogledrive, color: "#1A73E8" },
+  {
+    id: "calendar",
+    label: "Calendar",
+    Icon: SiGooglecalendar,
+    color: "#188038",
+  },
+] as const;
+
+const CREDENTIAL_SOURCE_OPTIONS = [
+  { id: "user", label: "Use my own app credentials" },
+  { id: "system", label: "Use platform-managed app" },
+] as const;
+
+const MICROSOFT_SERVICE_OPTIONS = [
+  {
+    id: "outlook",
+    label: "Outlook",
+    Icon: Mail,
+    color: "#0F6CBD",
+  },
+  {
+    id: "sharepoint",
+    label: "SharePoint",
+    Icon: Share2,
+    color: "#037362",
+  },
+  {
+    id: "onedrive",
+    label: "OneDrive",
+    Icon: Cloud,
+    color: "#0364B8",
+  },
+  { id: "teams", label: "Teams", Icon: Users2, color: "#5B5FC7" },
+  {
+    id: "calendar",
+    label: "Calendars",
+    Icon: CalendarClock,
+    color: "#0F6CBD",
+  },
+] as const;
+
+const MICROSOFT_AUTH_MODES = [
+  { id: "application", label: "Application (client credentials)" },
+  { id: "delegated", label: "Delegated (refresh token)" },
+] as const;
 
 export function IntegrationFormDialog({
   open,
@@ -243,6 +310,596 @@ export function IntegrationFormDialog({
     });
   };
 
+  const toggleServiceSelection = (
+    field: "googleServices" | "microsoftServices",
+    service: string
+  ) => {
+    setFormData((previous) => {
+      const currentServices =
+        (previous.config[field] as string[] | undefined) || [];
+      const nextServices = currentServices.includes(service)
+        ? currentServices.filter((item) => item !== service)
+        : [...currentServices, service];
+
+      return {
+        ...previous,
+        config: { ...previous.config, [field]: nextServices },
+      };
+    });
+  };
+
+  const renderServiceOptions = (
+    field: "googleServices" | "microsoftServices",
+    options: typeof GOOGLE_SERVICE_OPTIONS | typeof MICROSOFT_SERVICE_OPTIONS
+  ) => {
+    const selected = (formData.config[field] as string[] | undefined) || [];
+
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((option) => {
+          const Icon = option.Icon;
+          const isSelected = selected.includes(option.id);
+
+          return (
+            <Button
+              aria-pressed={isSelected}
+              className="flex items-center justify-between"
+              disabled={isDisabled}
+              key={option.id}
+              onClick={() => toggleServiceSelection(field, option.id)}
+              type="button"
+              variant={isSelected ? "secondary" : "outline"}
+            >
+              <span className="flex items-center gap-2">
+                <Icon className="size-4" color={option.color} />
+                {option.label}
+              </span>
+              {isSelected ? <Check className="size-4" /> : null}
+            </Button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderResendFields = () => (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="apiKey">API Key</Label>
+        <Input
+          id="apiKey"
+          onChange={(e) => updateConfig("apiKey", e.target.value)}
+          placeholder="re_..."
+          type="password"
+          value={formData.config.apiKey || ""}
+        />
+        <p className="text-muted-foreground text-xs">
+          Get your API key from{" "}
+          <a
+            className="underline hover:text-foreground"
+            href="https://resend.com/api-keys"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            resend.com/api-keys
+          </a>
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="fromEmail">From Email</Label>
+        <Input
+          id="fromEmail"
+          onChange={(e) => updateConfig("fromEmail", e.target.value)}
+          placeholder="noreply@example.com"
+          value={formData.config.fromEmail || ""}
+        />
+      </div>
+    </>
+  );
+
+  const renderLinearFields = () => (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="apiKey">API Key</Label>
+        <Input
+          id="apiKey"
+          onChange={(e) => updateConfig("apiKey", e.target.value)}
+          placeholder="lin_api_..."
+          type="password"
+          value={formData.config.apiKey || ""}
+        />
+        <p className="text-muted-foreground text-xs">
+          Get your API key from{" "}
+          <a
+            className="underline hover:text-foreground"
+            href="https://linear.app/settings/account/security"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            linear.app/settings/account/security
+          </a>
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="teamId">Team ID</Label>
+        <Input
+          id="teamId"
+          onChange={(e) => updateConfig("teamId", e.target.value)}
+          placeholder="team_..."
+          value={formData.config.teamId || ""}
+        />
+      </div>
+    </>
+  );
+
+  const renderSlackFields = () => (
+    <div className="space-y-2">
+      <Label htmlFor="apiKey">Bot Token</Label>
+      <Input
+        id="apiKey"
+        onChange={(e) => updateConfig("apiKey", e.target.value)}
+        placeholder="xoxb-..."
+        type="password"
+        value={formData.config.apiKey || ""}
+      />
+      <p className="text-muted-foreground text-xs">
+        Create a Slack app and get your bot token from{" "}
+        <a
+          className="underline hover:text-foreground"
+          href="https://api.slack.com/apps"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          api.slack.com/apps
+        </a>
+      </p>
+    </div>
+  );
+
+  const renderDatabaseFields = () => (
+    <div className="space-y-2">
+      <Label htmlFor="url">Database URL</Label>
+      <Input
+        id="url"
+        onChange={(e) => updateConfig("url", e.target.value)}
+        placeholder="postgresql://..."
+        type="password"
+        value={formData.config.url || ""}
+      />
+      <p className="text-muted-foreground text-xs">
+        Connection string in the format:
+        postgresql://user:password@host:port/database
+      </p>
+    </div>
+  );
+
+  const renderAiGatewayFields = () => (
+    <div className="space-y-2">
+      <Label htmlFor="apiKey">AI Gateway API Key</Label>
+      <Input
+        id="apiKey"
+        onChange={(e) => updateConfig("apiKey", e.target.value)}
+        placeholder="API Key"
+        type="password"
+        value={formData.config.apiKey || ""}
+      />
+      <p className="text-muted-foreground text-xs">
+        Get your API key from{" "}
+        <a
+          className="underline hover:text-foreground"
+          href="https://vercel.com/ai-gateway"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          vercel.com/ai-gateway
+        </a>
+      </p>
+    </div>
+  );
+
+  const renderGoogleFields = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="googleCredentialSource">Credential Source</Label>
+        <Select
+          disabled={isDisabled}
+          onValueChange={(value) =>
+            setFormData((previous) => ({
+              ...previous,
+              config: {
+                ...previous.config,
+                googleCredentialSource: value as "user" | "system",
+              },
+            }))
+          }
+          value={formData.config.googleCredentialSource || "user"}
+        >
+          <SelectTrigger id="googleCredentialSource">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CREDENTIAL_SOURCE_OPTIONS.map((credential) => (
+              <SelectItem key={credential.id} value={credential.id}>
+                {credential.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-muted-foreground text-xs">
+          System-managed uses the platform OAuth app ID/secret; user-provided
+          lets you bring your own.
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="googleClientId">OAuth Client ID</Label>
+          <Input
+            disabled={
+              (formData.config.googleCredentialSource || "user") === "system"
+            }
+            id="googleClientId"
+            onChange={(e) => updateConfig("googleClientId", e.target.value)}
+            placeholder="google client id"
+            value={formData.config.googleClientId || ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="googleClientSecret">OAuth Client Secret</Label>
+          <Input
+            disabled={
+              (formData.config.googleCredentialSource || "user") === "system"
+            }
+            id="googleClientSecret"
+            onChange={(e) => updateConfig("googleClientSecret", e.target.value)}
+            placeholder="google client secret"
+            type="password"
+            value={formData.config.googleClientSecret || ""}
+          />
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="googleRefreshToken">Refresh Token</Label>
+          <Input
+            disabled={
+              (formData.config.googleCredentialSource || "user") === "system"
+            }
+            id="googleRefreshToken"
+            onChange={(e) => updateConfig("googleRefreshToken", e.target.value)}
+            placeholder="1//04..."
+            type="password"
+            value={formData.config.googleRefreshToken || ""}
+          />
+          <p className="text-muted-foreground text-xs">
+            Use an OAuth 2.0 refresh token that includes Gmail/Drive/Calendar
+            scopes.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="googleRedirectUri">Redirect URI (optional)</Label>
+          <Input
+            id="googleRedirectUri"
+            onChange={(e) => updateConfig("googleRedirectUri", e.target.value)}
+            placeholder="https://yourapp.com/api/auth/callback"
+            value={formData.config.googleRedirectUri || ""}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="googleScopes">Scopes</Label>
+        <Textarea
+          id="googleScopes"
+          onChange={(e) => updateConfig("googleScopes", e.target.value)}
+          placeholder="https://www.googleapis.com/auth/gmail.send, https://www.googleapis.com/auth/drive, https://www.googleapis.com/auth/calendar"
+          value={formData.config.googleScopes || ""}
+        />
+        <p className="text-muted-foreground text-xs">
+          Comma-separated list of Google scopes to support Gmail, Drive, and
+          Calendar.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="googleServiceAccount">
+          Service Account JSON (optional)
+        </Label>
+        <Textarea
+          id="googleServiceAccount"
+          onChange={(e) => updateConfig("googleServiceAccount", e.target.value)}
+          placeholder='{"type":"service_account","project_id":"...","private_key_id":"..."}'
+          rows={4}
+          value={formData.config.googleServiceAccount || ""}
+        />
+        <p className="text-muted-foreground text-xs">
+          Paste the full JSON if you use a Workspace service account with
+          domain-wide delegation.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="googleWorkspaceAdminEmail">
+          Workspace Admin Email (optional)
+        </Label>
+        <Input
+          id="googleWorkspaceAdminEmail"
+          onChange={(e) =>
+            updateConfig("googleWorkspaceAdminEmail", e.target.value)
+          }
+          placeholder="admin@company.com"
+          value={formData.config.googleWorkspaceAdminEmail || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Services</Label>
+        <p className="text-muted-foreground text-xs">
+          Select the Google surfaces you plan to access to align scopes and
+          permission reviews.
+        </p>
+        {renderServiceOptions("googleServices", GOOGLE_SERVICE_OPTIONS)}
+      </div>
+    </div>
+  );
+
+  const renderMicrosoftFields = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="microsoftCredentialSource">Credential Source</Label>
+        <Select
+          disabled={isDisabled}
+          onValueChange={(value) =>
+            setFormData((previous) => ({
+              ...previous,
+              config: {
+                ...previous.config,
+                microsoftCredentialSource: value as "user" | "system",
+              },
+            }))
+          }
+          value={formData.config.microsoftCredentialSource || "user"}
+        >
+          <SelectTrigger id="microsoftCredentialSource">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CREDENTIAL_SOURCE_OPTIONS.map((credential) => (
+              <SelectItem key={credential.id} value={credential.id}>
+                {credential.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-muted-foreground text-xs">
+          System-managed uses the platform app ID/secret; user-provided lets you
+          bring your own.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="microsoftAuthMode">Auth Mode</Label>
+        <Select
+          disabled={isDisabled}
+          onValueChange={(value) =>
+            setFormData((previous) => ({
+              ...previous,
+              config: {
+                ...previous.config,
+                microsoftAuthMode: value as "application" | "delegated",
+                // Keep existing tokens/secrets but update scopes default per mode if empty
+                microsoftScopes:
+                  previous.config.microsoftScopes ||
+                  (value === "application"
+                    ? "https://graph.microsoft.com/.default"
+                    : "offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Calendars.ReadWrite"),
+              },
+            }))
+          }
+          value={formData.config.microsoftAuthMode || "application"}
+        >
+          <SelectTrigger id="microsoftAuthMode">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MICROSOFT_AUTH_MODES.map((authModeOption) => (
+              <SelectItem key={authModeOption.id} value={authModeOption.id}>
+                {authModeOption.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-muted-foreground text-xs">
+          Application mode uses app-only permissions; Delegated expects a
+          refresh token from an OAuth consent flow.
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="microsoftTenantId">Tenant ID</Label>
+          <Input
+            id="microsoftTenantId"
+            onChange={(e) => updateConfig("microsoftTenantId", e.target.value)}
+            placeholder="contoso.onmicrosoft.com or GUID"
+            value={formData.config.microsoftTenantId || ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="microsoftAuthorityHost">Authority Host</Label>
+          <Input
+            id="microsoftAuthorityHost"
+            onChange={(e) =>
+              updateConfig("microsoftAuthorityHost", e.target.value)
+            }
+            placeholder="https://login.microsoftonline.com"
+            value={formData.config.microsoftAuthorityHost || ""}
+          />
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="microsoftClientId">Client ID</Label>
+          <Input
+            disabled={
+              (formData.config.microsoftCredentialSource || "user") === "system"
+            }
+            id="microsoftClientId"
+            onChange={(e) => updateConfig("microsoftClientId", e.target.value)}
+            placeholder="Application (client) ID"
+            value={formData.config.microsoftClientId || ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="microsoftClientSecret">Client Secret</Label>
+          <Input
+            disabled={
+              (formData.config.microsoftCredentialSource || "user") === "system"
+            }
+            id="microsoftClientSecret"
+            onChange={(e) =>
+              updateConfig("microsoftClientSecret", e.target.value)
+            }
+            placeholder="Client secret"
+            type="password"
+            value={formData.config.microsoftClientSecret || ""}
+          />
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="microsoftRefreshToken">
+            Refresh Token (delegated only)
+          </Label>
+          <Input
+            disabled={
+              (formData.config.microsoftAuthMode || "application") ===
+              "application"
+            }
+            id="microsoftRefreshToken"
+            onChange={(e) =>
+              updateConfig("microsoftRefreshToken", e.target.value)
+            }
+            placeholder="0.AAA..."
+            type="password"
+            value={formData.config.microsoftRefreshToken || ""}
+          />
+          <p className="text-muted-foreground text-xs">
+            Obtain via an OAuth authorization code flow with offline_access and
+            Graph scopes.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="microsoftRedirectUri">Redirect URI</Label>
+          <Input
+            disabled={
+              (formData.config.microsoftAuthMode || "application") ===
+              "application"
+            }
+            id="microsoftRedirectUri"
+            onChange={(e) =>
+              updateConfig("microsoftRedirectUri", e.target.value)
+            }
+            placeholder="https://yourapp.com/api/auth/microsoft"
+            value={formData.config.microsoftRedirectUri || ""}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="microsoftScopes">Scopes</Label>
+        <Textarea
+          id="microsoftScopes"
+          onChange={(e) => updateConfig("microsoftScopes", e.target.value)}
+          placeholder="https://graph.microsoft.com/.default"
+          value={formData.config.microsoftScopes || ""}
+        />
+        <p className="text-muted-foreground text-xs">
+          Include Graph scopes for Outlook, SharePoint, OneDrive, Teams, and
+          Calendars. Use .default for application permissions or explicit scopes
+          for delegated refresh tokens.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Services</Label>
+        <p className="text-muted-foreground text-xs">
+          Pick the Microsoft surfaces you need. We use this to highlight
+          required scopes.
+        </p>
+        {renderServiceOptions("microsoftServices", MICROSOFT_SERVICE_OPTIONS)}
+      </div>
+    </div>
+  );
+
+  const renderFirecrawlFields = () => (
+    <div className="space-y-2">
+      <Label htmlFor="firecrawlApiKey">API Key</Label>
+      <Input
+        id="firecrawlApiKey"
+        onChange={(e) => updateConfig("firecrawlApiKey", e.target.value)}
+        placeholder="fc-..."
+        type="password"
+        value={formData.config.firecrawlApiKey || ""}
+      />
+      <p className="text-muted-foreground text-xs">
+        Get your API key from{" "}
+        <a
+          className="underline hover:text-foreground"
+          href="https://firecrawl.dev/app/api-keys"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          firecrawl.dev
+        </a>
+      </p>
+    </div>
+  );
+
+  const renderCustomFields = () => {
+    const customFields = formData.config.customFields || [
+      { key: "", value: "" },
+    ];
+
+    return (
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label>Secrets</Label>
+          <p className="text-muted-foreground text-xs">
+            Store key/value pairs for your custom integration. Values are
+            encrypted and available to your workflows at runtime.
+          </p>
+        </div>
+
+        {customFields.map((field, index) => (
+          <div
+            className="flex items-center gap-2"
+            key={`${index}-${field.key}`}
+          >
+            <Input
+              autoFocus={index === customFields.length - 1}
+              onChange={(e) => updateCustomField(index, "key", e.target.value)}
+              placeholder="API_KEY"
+              value={field.key || ""}
+            />
+            <Input
+              onChange={(e) =>
+                updateCustomField(index, "value", e.target.value)
+              }
+              placeholder="Value"
+              type="password"
+              value={field.value || ""}
+            />
+            <Button
+              className="shrink-0"
+              disabled={customFields.length === 1}
+              onClick={() => removeCustomField(index)}
+              size="icon"
+              variant="ghost"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        ))}
+
+        <Button onClick={addCustomField} size="sm" variant="outline">
+          Add secret
+        </Button>
+      </div>
+    );
+  };
+
   const renderConfigFields = () => {
     if (loadingConfig) {
       return (
@@ -255,218 +912,23 @@ export function IntegrationFormDialog({
 
     switch (formData.type) {
       case "resend":
-        return (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="apiKey">API Key</Label>
-              <Input
-                id="apiKey"
-                onChange={(e) => updateConfig("apiKey", e.target.value)}
-                placeholder="re_..."
-                type="password"
-                value={formData.config.apiKey || ""}
-              />
-              <p className="text-muted-foreground text-xs">
-                Get your API key from{" "}
-                <a
-                  className="underline hover:text-foreground"
-                  href="https://resend.com/api-keys"
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  resend.com/api-keys
-                </a>
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fromEmail">From Email</Label>
-              <Input
-                id="fromEmail"
-                onChange={(e) => updateConfig("fromEmail", e.target.value)}
-                placeholder="noreply@example.com"
-                value={formData.config.fromEmail || ""}
-              />
-            </div>
-          </>
-        );
+        return renderResendFields();
       case "linear":
-        return (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="apiKey">API Key</Label>
-              <Input
-                id="apiKey"
-                onChange={(e) => updateConfig("apiKey", e.target.value)}
-                placeholder="lin_api_..."
-                type="password"
-                value={formData.config.apiKey || ""}
-              />
-              <p className="text-muted-foreground text-xs">
-                Get your API key from{" "}
-                <a
-                  className="underline hover:text-foreground"
-                  href="https://linear.app/settings/account/security"
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  linear.app/settings/account/security
-                </a>
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="teamId">Team ID</Label>
-              <Input
-                id="teamId"
-                onChange={(e) => updateConfig("teamId", e.target.value)}
-                placeholder="team_..."
-                value={formData.config.teamId || ""}
-              />
-            </div>
-          </>
-        );
+        return renderLinearFields();
       case "slack":
-        return (
-          <div className="space-y-2">
-            <Label htmlFor="apiKey">Bot Token</Label>
-            <Input
-              id="apiKey"
-              onChange={(e) => updateConfig("apiKey", e.target.value)}
-              placeholder="xoxb-..."
-              type="password"
-              value={formData.config.apiKey || ""}
-            />
-            <p className="text-muted-foreground text-xs">
-              Create a Slack app and get your bot token from{" "}
-              <a
-                className="underline hover:text-foreground"
-                href="https://api.slack.com/apps"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                api.slack.com/apps
-              </a>
-            </p>
-          </div>
-        );
+        return renderSlackFields();
       case "database":
-        return (
-          <div className="space-y-2">
-            <Label htmlFor="url">Database URL</Label>
-            <Input
-              id="url"
-              onChange={(e) => updateConfig("url", e.target.value)}
-              placeholder="postgresql://..."
-              type="password"
-              value={formData.config.url || ""}
-            />
-            <p className="text-muted-foreground text-xs">
-              Connection string in the format:
-              postgresql://user:password@host:port/database
-            </p>
-          </div>
-        );
+        return renderDatabaseFields();
       case "ai-gateway":
-        return (
-          <div className="space-y-2">
-            <Label htmlFor="apiKey">AI Gateway API Key</Label>
-            <Input
-              id="apiKey"
-              onChange={(e) => updateConfig("apiKey", e.target.value)}
-              placeholder="API Key"
-              type="password"
-              value={formData.config.apiKey || ""}
-            />
-            <p className="text-muted-foreground text-xs">
-              Get your API key from{" "}
-              <a
-                className="underline hover:text-foreground"
-                href="https://vercel.com/ai-gateway"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                vercel.com/ai-gateway
-              </a>
-            </p>
-          </div>
-        );
+        return renderAiGatewayFields();
+      case "google":
+        return renderGoogleFields();
+      case "microsoft":
+        return renderMicrosoftFields();
       case "firecrawl":
-        return (
-          <div className="space-y-2">
-            <Label htmlFor="firecrawlApiKey">API Key</Label>
-            <Input
-              id="firecrawlApiKey"
-              onChange={(e) => updateConfig("firecrawlApiKey", e.target.value)}
-              placeholder="fc-..."
-              type="password"
-              value={formData.config.firecrawlApiKey || ""}
-            />
-            <p className="text-muted-foreground text-xs">
-              Get your API key from{" "}
-              <a
-                className="underline hover:text-foreground"
-                href="https://firecrawl.dev/app/api-keys"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                firecrawl.dev
-              </a>
-            </p>
-          </div>
-        );
-      case "custom": {
-        const customFields = formData.config.customFields || [
-          { key: "", value: "" },
-        ];
-
-        return (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>Secrets</Label>
-              <p className="text-muted-foreground text-xs">
-                Store key/value pairs for your custom integration. Values are
-                encrypted and available to your workflows at runtime.
-              </p>
-            </div>
-
-            {customFields.map((field, index) => (
-              <div
-                className="flex items-center gap-2"
-                key={`${index}-${field.key}`}
-              >
-                <Input
-                  autoFocus={index === customFields.length - 1}
-                  onChange={(e) =>
-                    updateCustomField(index, "key", e.target.value)
-                  }
-                  placeholder="API_KEY"
-                  value={field.key || ""}
-                />
-                <Input
-                  onChange={(e) =>
-                    updateCustomField(index, "value", e.target.value)
-                  }
-                  placeholder="Value"
-                  type="password"
-                  value={field.value || ""}
-                />
-                <Button
-                  className="shrink-0"
-                  disabled={customFields.length === 1}
-                  onClick={() => removeCustomField(index)}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            ))}
-
-            <Button onClick={addCustomField} size="sm" variant="outline">
-              Add secret
-            </Button>
-          </div>
-        );
-      }
+        return renderFirecrawlFields();
+      case "custom":
+        return renderCustomFields();
       default:
         return null;
     }

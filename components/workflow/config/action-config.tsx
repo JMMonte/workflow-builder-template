@@ -214,6 +214,451 @@ function SendSlackMessageFields({
   );
 }
 
+function SendGmailFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="gmail-to"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.to as string) || "";
+            onUpdateConfig("to", currentValue + template);
+          }}
+        >
+          To (Email Address)
+        </LabelWithVariablePicker>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="gmail-to"
+          onChange={(value) => onUpdateConfig("to", value)}
+          placeholder="user@example.com or {{NodeName.email}}"
+          value={(config?.to as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="gmail-subject"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.subject as string) || "";
+            onUpdateConfig("subject", currentValue + template);
+          }}
+        >
+          Subject
+        </LabelWithVariablePicker>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="gmail-subject"
+          onChange={(value) => onUpdateConfig("subject", value)}
+          placeholder="Subject or {{NodeName.title}}"
+          value={(config?.subject as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="gmail-body"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.body as string) || "";
+            onUpdateConfig("body", currentValue + template);
+          }}
+        >
+          Body
+        </LabelWithVariablePicker>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="gmail-body"
+          onChange={(value) => onUpdateConfig("body", value)}
+          placeholder="Email body. Use {{NodeName.field}} to insert data from previous nodes."
+          rows={4}
+          value={(config?.body as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+function GoogleCalendarFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="google-event-title"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.title as string) || "";
+            onUpdateConfig("title", currentValue + template);
+          }}
+        >
+          Title
+        </LabelWithVariablePicker>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="google-event-title"
+          onChange={(value) => onUpdateConfig("title", value)}
+          placeholder="Weekly Sync"
+          value={(config?.title as string) || ""}
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="google-event-start">Start (ISO)</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            id="google-event-start"
+            onChange={(value) => onUpdateConfig("start", value)}
+            placeholder="2025-01-01T10:00:00Z"
+            value={(config?.start as string) || ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="google-event-end">End (ISO)</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            id="google-event-end"
+            onChange={(value) => onUpdateConfig("end", value)}
+            placeholder="2025-01-01T11:00:00Z"
+            value={(config?.end as string) || ""}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="google-event-description">Description</Label>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="google-event-description"
+          onChange={(value) => onUpdateConfig("description", value)}
+          placeholder="Agenda and details"
+          rows={3}
+          value={(config?.description as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+function GoogleDriveUploadFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="drive-file-url">File URL</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="drive-file-url"
+          onChange={(value) => onUpdateConfig("fileUrl", value)}
+          placeholder="https://example.com/file.pdf"
+          value={(config?.fileUrl as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="drive-folder-id">
+          Destination Folder ID (optional)
+        </Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="drive-folder-id"
+          onChange={(value) => onUpdateConfig("folderId", value)}
+          placeholder="drive-folder-id"
+          value={(config?.folderId as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="drive-mime-type">MIME Type</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="drive-mime-type"
+          onChange={(value) => onUpdateConfig("mimeType", value)}
+          placeholder="application/pdf"
+          value={(config?.mimeType as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SendOutlookFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="outlook-to"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.to as string) || "";
+            onUpdateConfig("to", currentValue + template);
+          }}
+        >
+          To (Email Address)
+        </LabelWithVariablePicker>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="outlook-to"
+          onChange={(value) => onUpdateConfig("to", value)}
+          placeholder="user@example.com or {{NodeName.email}}"
+          value={(config?.to as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="outlook-subject"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.subject as string) || "";
+            onUpdateConfig("subject", currentValue + template);
+          }}
+        >
+          Subject
+        </LabelWithVariablePicker>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="outlook-subject"
+          onChange={(value) => onUpdateConfig("subject", value)}
+          placeholder="Subject or {{NodeName.title}}"
+          value={(config?.subject as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <LabelWithVariablePicker
+          className="ml-1"
+          htmlFor="outlook-body"
+          onVariableSelect={(template) => {
+            const currentValue = (config?.body as string) || "";
+            onUpdateConfig("body", currentValue + template);
+          }}
+        >
+          Body
+        </LabelWithVariablePicker>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="outlook-body"
+          onChange={(value) => onUpdateConfig("body", value)}
+          placeholder="Email body. Use {{NodeName.field}} to insert data from previous nodes."
+          rows={4}
+          value={(config?.body as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TeamsMessageFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="teams-team-id">Team ID</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="teams-team-id"
+          onChange={(value) => onUpdateConfig("teamId", value)}
+          placeholder="team-id"
+          value={(config?.teamId as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="teams-channel-id">Channel ID</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="teams-channel-id"
+          onChange={(value) => onUpdateConfig("channelId", value)}
+          placeholder="channel-id"
+          value={(config?.channelId as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="teams-message">Message</Label>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="teams-message"
+          onChange={(value) => onUpdateConfig("content", value)}
+          placeholder="Message content"
+          rows={3}
+          value={(config?.content as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+function OneDriveUploadFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="onedrive-file-url">File URL</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="onedrive-file-url"
+          onChange={(value) => onUpdateConfig("fileUrl", value)}
+          placeholder="https://example.com/file.pdf"
+          value={(config?.fileUrl as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="onedrive-folder-path">Folder Path (optional)</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="onedrive-folder-path"
+          onChange={(value) => onUpdateConfig("folderPath", value)}
+          placeholder="/Documents"
+          value={(config?.folderPath as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SharePointPageFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="sharepoint-site-id">Site ID</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="sharepoint-site-id"
+          onChange={(value) => onUpdateConfig("siteId", value)}
+          placeholder="site-id"
+          value={(config?.siteId as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="sharepoint-title">Title</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="sharepoint-title"
+          onChange={(value) => onUpdateConfig("title", value)}
+          placeholder="Page title"
+          value={(config?.title as string) || ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="sharepoint-content">Content</Label>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="sharepoint-content"
+          onChange={(value) => onUpdateConfig("content", value)}
+          placeholder="Page content (HTML or text)"
+          rows={4}
+          value={(config?.content as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MicrosoftEventFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="ms-event-title">Title</Label>
+        <TemplateBadgeInput
+          disabled={disabled}
+          id="ms-event-title"
+          onChange={(value) => onUpdateConfig("title", value)}
+          placeholder="Meeting title"
+          value={(config?.title as string) || ""}
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ms-event-start">Start (ISO)</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            id="ms-event-start"
+            onChange={(value) => onUpdateConfig("start", value)}
+            placeholder="2025-01-01T10:00:00Z"
+            value={(config?.start as string) || ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ms-event-end">End (ISO)</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            id="ms-event-end"
+            onChange={(value) => onUpdateConfig("end", value)}
+            placeholder="2025-01-01T11:00:00Z"
+            value={(config?.end as string) || ""}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ms-event-description">Description</Label>
+        <TemplateBadgeTextarea
+          disabled={disabled}
+          id="ms-event-description"
+          onChange={(value) => onUpdateConfig("description", value)}
+          placeholder="Agenda and details"
+          rows={3}
+          value={(config?.description as string) || ""}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Create Ticket fields component
 function CreateTicketFields({
   config,
@@ -1164,6 +1609,24 @@ const ACTION_CATEGORIES = {
   Linear: ["Create Ticket", "Find Issues"],
   Resend: ["Send Email"],
   Slack: ["Send Slack Message"],
+  "Google Workspace": [
+    "Send Gmail",
+    "Create Google Calendar Event",
+    "Upload Drive File",
+    "Read Gmail",
+    "List Google Calendar Events",
+    "Search Drive",
+  ],
+  "Microsoft 365": [
+    "Send Outlook Email",
+    "Create Teams Message",
+    "Upload OneDrive File",
+    "Create SharePoint Page",
+    "Create Microsoft Event",
+    "Read Outlook Email",
+    "Search OneDrive",
+    "List Microsoft Events",
+  ],
 } as const;
 
 type ActionCategory = keyof typeof ACTION_CATEGORIES;
@@ -1284,6 +1747,18 @@ export function ActionConfig({
                   <span>Firecrawl</span>
                 </div>
               </SelectItem>
+              <SelectItem value="Google Workspace">
+                <div className="flex items-center gap-2">
+                  <IntegrationIcon className="size-4" integration="google" />
+                  <span>Google Workspace</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="Microsoft 365">
+                <div className="flex items-center gap-2">
+                  <IntegrationIcon className="size-4" integration="microsoft" />
+                  <span>Microsoft 365</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1392,6 +1867,66 @@ export function ActionConfig({
           onUpdateConfig={onUpdateConfig}
           onUpdateConfigBatch={onUpdateConfigBatch}
           upstreamNodes={upstreamNodes}
+        />
+      )}
+
+      {/* Google Workspace */}
+      {config?.actionType === "Send Gmail" && (
+        <SendGmailFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      )}
+      {config?.actionType === "Create Google Calendar Event" && (
+        <GoogleCalendarFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      )}
+      {config?.actionType === "Upload Drive File" && (
+        <GoogleDriveUploadFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      )}
+
+      {/* Microsoft 365 */}
+      {config?.actionType === "Send Outlook Email" && (
+        <SendOutlookFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      )}
+      {config?.actionType === "Create Teams Message" && (
+        <TeamsMessageFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      )}
+      {config?.actionType === "Upload OneDrive File" && (
+        <OneDriveUploadFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      )}
+      {config?.actionType === "Create SharePoint Page" && (
+        <SharePointPageFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      )}
+      {config?.actionType === "Create Microsoft Event" && (
+        <MicrosoftEventFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
         />
       )}
 

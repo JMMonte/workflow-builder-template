@@ -26,6 +26,23 @@ export type WorkflowCredentials = {
   AI_GATEWAY_API_KEY?: string;
   DATABASE_URL?: string;
   FIRECRAWL_API_KEY?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_REFRESH_TOKEN?: string;
+  GOOGLE_REDIRECT_URI?: string;
+  GOOGLE_SERVICE_ACCOUNT?: string;
+  GOOGLE_WORKSPACE_ADMIN_EMAIL?: string;
+  GOOGLE_SCOPES?: string;
+  GOOGLE_SERVICES?: string;
+  MICROSOFT_TENANT_ID?: string;
+  MICROSOFT_CLIENT_ID?: string;
+  MICROSOFT_CLIENT_SECRET?: string;
+  MICROSOFT_REFRESH_TOKEN?: string;
+  MICROSOFT_REDIRECT_URI?: string;
+  MICROSOFT_AUTHORITY_HOST?: string;
+  MICROSOFT_SCOPES?: string;
+  MICROSOFT_AUTH_MODE?: "delegated" | "application";
+  MICROSOFT_SERVICES?: string;
   CUSTOM?: Record<string, string>;
 };
 
@@ -83,6 +100,95 @@ function mapFirecrawlConfig(config: IntegrationConfig): WorkflowCredentials {
   return creds;
 }
 
+function mapGoogleConfig(config: IntegrationConfig): WorkflowCredentials {
+  const creds: WorkflowCredentials = {};
+
+  const useSystem = config.googleCredentialSource === "system";
+
+  const clientId = useSystem
+    ? process.env.SYSTEM_GOOGLE_CLIENT_ID
+    : config.googleClientId;
+  const clientSecret = useSystem
+    ? process.env.SYSTEM_GOOGLE_CLIENT_SECRET
+    : config.googleClientSecret;
+  const redirectUri = useSystem
+    ? process.env.SYSTEM_GOOGLE_REDIRECT_URI
+    : config.googleRedirectUri;
+
+  if (clientId) {
+    creds.GOOGLE_CLIENT_ID = clientId;
+  }
+  if (clientSecret) {
+    creds.GOOGLE_CLIENT_SECRET = clientSecret;
+  }
+  if (config.googleRefreshToken) {
+    creds.GOOGLE_REFRESH_TOKEN = config.googleRefreshToken;
+  }
+  if (redirectUri) {
+    creds.GOOGLE_REDIRECT_URI = redirectUri;
+  }
+  if (config.googleServiceAccount) {
+    creds.GOOGLE_SERVICE_ACCOUNT = config.googleServiceAccount;
+  }
+  if (config.googleWorkspaceAdminEmail) {
+    creds.GOOGLE_WORKSPACE_ADMIN_EMAIL = config.googleWorkspaceAdminEmail;
+  }
+  if (config.googleScopes) {
+    creds.GOOGLE_SCOPES = config.googleScopes;
+  }
+  if (config.googleServices?.length) {
+    creds.GOOGLE_SERVICES = config.googleServices.join(",");
+  }
+
+  return creds;
+}
+
+function mapMicrosoftConfig(config: IntegrationConfig): WorkflowCredentials {
+  const creds: WorkflowCredentials = {};
+
+  const useSystem = config.microsoftCredentialSource === "system";
+
+  const clientId = useSystem
+    ? process.env.SYSTEM_MICROSOFT_CLIENT_ID
+    : config.microsoftClientId;
+  const clientSecret = useSystem
+    ? process.env.SYSTEM_MICROSOFT_CLIENT_SECRET
+    : config.microsoftClientSecret;
+  const authorityHost =
+    config.microsoftAuthorityHost ||
+    process.env.SYSTEM_MICROSOFT_AUTHORITY_HOST;
+
+  if (config.microsoftTenantId) {
+    creds.MICROSOFT_TENANT_ID = config.microsoftTenantId;
+  }
+  if (clientId) {
+    creds.MICROSOFT_CLIENT_ID = clientId;
+  }
+  if (clientSecret) {
+    creds.MICROSOFT_CLIENT_SECRET = clientSecret;
+  }
+  if (authorityHost) {
+    creds.MICROSOFT_AUTHORITY_HOST = authorityHost;
+  }
+  if (config.microsoftRefreshToken) {
+    creds.MICROSOFT_REFRESH_TOKEN = config.microsoftRefreshToken;
+  }
+  if (config.microsoftRedirectUri) {
+    creds.MICROSOFT_REDIRECT_URI = config.microsoftRedirectUri;
+  }
+  if (config.microsoftScopes) {
+    creds.MICROSOFT_SCOPES = config.microsoftScopes;
+  }
+  if (config.microsoftAuthMode) {
+    creds.MICROSOFT_AUTH_MODE = config.microsoftAuthMode;
+  }
+  if (config.microsoftServices?.length) {
+    creds.MICROSOFT_SERVICES = config.microsoftServices.join(",");
+  }
+
+  return creds;
+}
+
 function mapCustomConfig(config: IntegrationConfig): WorkflowCredentials {
   const fields = config.customFields || [];
   const mapped: Record<string, string> = {};
@@ -125,6 +231,12 @@ function mapIntegrationConfig(
   }
   if (integrationType === "firecrawl") {
     return mapFirecrawlConfig(config);
+  }
+  if (integrationType === "google") {
+    return mapGoogleConfig(config);
+  }
+  if (integrationType === "microsoft") {
+    return mapMicrosoftConfig(config);
   }
   if (integrationType === "custom") {
     return mapCustomConfig(config);

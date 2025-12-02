@@ -551,6 +551,8 @@ export type IntegrationType =
   | "database"
   | "ai-gateway"
   | "firecrawl"
+  | "google"
+  | "microsoft"
   | "custom";
 
 export type CustomIntegrationField = {
@@ -567,6 +569,25 @@ export type IntegrationConfig = {
   url?: string;
   openaiApiKey?: string;
   firecrawlApiKey?: string;
+  googleClientId?: string;
+  googleClientSecret?: string;
+  googleRefreshToken?: string;
+  googleRedirectUri?: string;
+  googleServiceAccount?: string;
+  googleWorkspaceAdminEmail?: string;
+  googleScopes?: string;
+  googleServices?: string[];
+  googleCredentialSource?: "user" | "system";
+  microsoftTenantId?: string;
+  microsoftClientId?: string;
+  microsoftClientSecret?: string;
+  microsoftRefreshToken?: string;
+  microsoftRedirectUri?: string;
+  microsoftAuthorityHost?: string;
+  microsoftScopes?: string;
+  microsoftCredentialSource?: "user" | "system";
+  microsoftAuthMode?: "delegated" | "application";
+  microsoftServices?: string[];
   customFields?: CustomIntegrationField[];
 };
 

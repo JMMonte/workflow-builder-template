@@ -101,6 +101,8 @@ export type IntegrationType =
   | "database"
   | "ai-gateway"
   | "firecrawl"
+  | "google"
+  | "microsoft"
   | "custom";
 
 export type CustomIntegrationField = {
@@ -123,6 +125,27 @@ export type IntegrationConfig = {
   openaiApiKey?: string;
   // Firecrawl
   firecrawlApiKey?: string;
+  // Google Workspace
+  googleClientId?: string;
+  googleClientSecret?: string;
+  googleRefreshToken?: string;
+  googleRedirectUri?: string;
+  googleServiceAccount?: string;
+  googleWorkspaceAdminEmail?: string;
+  googleScopes?: string;
+  googleServices?: string[];
+  googleCredentialSource?: "user" | "system";
+  // Microsoft 365 / Entra ID
+  microsoftTenantId?: string;
+  microsoftClientId?: string;
+  microsoftClientSecret?: string;
+  microsoftRefreshToken?: string;
+  microsoftRedirectUri?: string;
+  microsoftAuthorityHost?: string;
+  microsoftScopes?: string;
+  microsoftCredentialSource?: "user" | "system";
+  microsoftAuthMode?: "delegated" | "application";
+  microsoftServices?: string[];
   // Custom
   customFields?: CustomIntegrationField[];
 };

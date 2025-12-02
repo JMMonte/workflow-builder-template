@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  CalendarClock,
   Database,
+  FileText,
   Flame,
   Mail,
   MessageSquare,
@@ -10,6 +12,7 @@ import {
   Sparkles,
   StickyNote,
   Ticket,
+  UploadCloud,
   Zap,
 } from "lucide-react";
 import { useState } from "react";
@@ -24,7 +27,14 @@ type ActionType = {
   description: string;
   category: string;
   icon: React.ComponentType<{ className?: string }>;
-  integration?: "linear" | "resend" | "slack" | "vercel" | "firecrawl";
+  integration?:
+    | "linear"
+    | "resend"
+    | "slack"
+    | "vercel"
+    | "firecrawl"
+    | "google"
+    | "microsoft";
 };
 
 const actions: ActionType[] = [
@@ -98,6 +108,70 @@ const actions: ActionType[] = [
     integration: "vercel",
   },
   {
+    id: "Send Gmail",
+    label: "Send Gmail",
+    description: "Send an email via Gmail",
+    category: "Google Workspace",
+    icon: Mail,
+    integration: "google",
+  },
+  {
+    id: "Create Google Calendar Event",
+    label: "Create Calendar Event",
+    description: "Create a Google Calendar event",
+    category: "Google Workspace",
+    icon: StickyNote,
+    integration: "google",
+  },
+  {
+    id: "Upload Drive File",
+    label: "Upload Drive File",
+    description: "Upload a file to Google Drive",
+    category: "Google Workspace",
+    icon: UploadCloud,
+    integration: "google",
+  },
+  {
+    id: "Send Outlook Email",
+    label: "Send Outlook Email",
+    description: "Send an email via Outlook",
+    category: "Microsoft 365",
+    icon: Mail,
+    integration: "microsoft",
+  },
+  {
+    id: "Create Microsoft Event",
+    label: "Create Calendar Event",
+    description: "Create an Outlook calendar event",
+    category: "Microsoft 365",
+    icon: CalendarClock,
+    integration: "microsoft",
+  },
+  {
+    id: "Create Teams Message",
+    label: "Create Teams Message",
+    description: "Post a message to Microsoft Teams",
+    category: "Microsoft 365",
+    icon: MessageSquare,
+    integration: "microsoft",
+  },
+  {
+    id: "Upload OneDrive File",
+    label: "Upload OneDrive File",
+    description: "Upload a file to OneDrive",
+    category: "Microsoft 365",
+    icon: UploadCloud,
+    integration: "microsoft",
+  },
+  {
+    id: "Create SharePoint Page",
+    label: "Create SharePoint Page",
+    description: "Publish a page to SharePoint",
+    category: "Microsoft 365",
+    icon: FileText,
+    integration: "microsoft",
+  },
+  {
     id: "Content Card",
     label: "Content Card",
     description: "Reusable card for shared text or image prompts",
@@ -119,6 +193,55 @@ const actions: ActionType[] = [
     category: "Firecrawl",
     icon: Search,
     integration: "firecrawl",
+  },
+
+  {
+    id: "Read Gmail",
+    label: "Read Gmail",
+    description: "Fetch recent Gmail messages",
+    category: "Google Workspace",
+    icon: Search,
+    integration: "google",
+  },
+  {
+    id: "List Google Calendar Events",
+    label: "List Calendar Events",
+    description: "List events from Google Calendar",
+    category: "Google Workspace",
+    icon: CalendarClock,
+    integration: "google",
+  },
+  {
+    id: "Search Drive",
+    label: "Search Drive",
+    description: "Search files in Google Drive",
+    category: "Google Workspace",
+    icon: Search,
+    integration: "google",
+  },
+  {
+    id: "Read Outlook Email",
+    label: "Read Outlook Email",
+    description: "Fetch recent Outlook messages",
+    category: "Microsoft 365",
+    icon: Search,
+    integration: "microsoft",
+  },
+  {
+    id: "Search OneDrive",
+    label: "Search OneDrive",
+    description: "Search files in OneDrive",
+    category: "Microsoft 365",
+    icon: Search,
+    integration: "microsoft",
+  },
+  {
+    id: "List Microsoft Events",
+    label: "List Calendar Events",
+    description: "List events from Outlook Calendar",
+    category: "Microsoft 365",
+    icon: CalendarClock,
+    integration: "microsoft",
   },
 ];
 

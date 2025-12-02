@@ -39,6 +39,8 @@ const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
   slack: "Slack",
   database: "Database",
   "ai-gateway": "AI Gateway",
+  google: "Google Workspace",
+  microsoft: "Microsoft 365",
   firecrawl: "Firecrawl",
   custom: "Custom",
 };

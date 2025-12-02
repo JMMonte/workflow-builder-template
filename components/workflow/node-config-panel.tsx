@@ -781,6 +781,20 @@ export const PanelInner = () => {
                   "Database Query": "database",
                   Scrape: "firecrawl",
                   Search: "firecrawl",
+                  "Send Gmail": "google",
+                  "Read Gmail": "google",
+                  "Create Google Calendar Event": "google",
+                  "List Google Calendar Events": "google",
+                  "Upload Drive File": "google",
+                  "Search Drive": "google",
+                  "Send Outlook Email": "microsoft",
+                  "Read Outlook Email": "microsoft",
+                  "Create Teams Message": "microsoft",
+                  "Upload OneDrive File": "microsoft",
+                  "Search OneDrive": "microsoft",
+                  "Create SharePoint Page": "microsoft",
+                  "Create Microsoft Event": "microsoft",
+                  "List Microsoft Events": "microsoft",
                 } as const;
 
                 const integrationType =
