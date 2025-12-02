@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, LogIn, LogOut, Mail, UserPlus } from "lucide-react";
+import { Check, LogIn, Mail, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -327,8 +327,8 @@ export default function InvitePage({
             </>
           ) : (
             <>
-              <LogOut className="mr-2 size-4" />
-              Sign in as {invite?.email}
+              <UserPlus className="mr-2 size-4" />
+              Sign up as {invite?.email}
             </>
           )}
         </Button>
