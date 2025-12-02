@@ -92,7 +92,7 @@ function NavLinkItem({
   const linkContent = (
     <Link
       className={cn(
-        "group flex items-center gap-3 rounded-md px-3 py-2 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        "group flex items-center gap-3 rounded-[0.5rem] px-3 py-2 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         collapsed ? "justify-center px-2" : "justify-start",
         isActive
           ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"

@@ -17,10 +17,10 @@ export const Canvas = ({ children, ...props }: CanvasProps) => {
       zoomOnPinch
       {...props}
     >
-      <Background 
-        bgColor="var(--sidebar)" 
-        color="var(--border)" 
-        gap={24} 
+      <Background
+        bgColor="var(--background)"
+        color="var(--border)"
+        gap={24}
         size={2}
       />
       {children}

@@ -277,8 +277,22 @@ export function TemplateBadgeInput({
 
       // Create badge for template
       const badge = document.createElement("span");
+
+      // Determine color based on node type
+      const nodeId = match[1];
+      const node = nodes.find((n) => n.id === nodeId);
+      const nodeType = node?.data.type;
+      const actionType = node?.data.config?.actionType as string | undefined;
+
+      let colorClasses = "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+      if (nodeType === "trigger") {
+        colorClasses = "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20";
+      } else if (actionType === "Condition") {
+        colorClasses = "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20";
+      }
+
       badge.className =
-        "inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-600 dark:text-blue-400 font-mono text-xs border border-blue-500/20 mx-0.5";
+        `inline-flex items-center gap-1 rounded-full px-2 py-1 font-mono text-xs border mx-0.5 ${colorClasses}`;
       badge.contentEditable = "false";
       badge.setAttribute("data-template", fullMatch);
       // Use current node label for display

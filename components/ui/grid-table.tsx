@@ -24,7 +24,7 @@ export function GridTable({
   headerClassName,
 }: GridTableProps) {
   return (
-    <div className={cn("overflow-hidden rounded-md border", className)}>
+    <div className={cn("overflow-hidden rounded-[0.5rem] border", className)}>
       <div
         className={cn(
           "grid items-center gap-4 border-b bg-muted/50 px-4 py-2",

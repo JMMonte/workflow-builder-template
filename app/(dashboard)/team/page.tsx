@@ -44,8 +44,12 @@ import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 function RoleBadge({ teamRole }: { teamRole: TeamMember["role"] }) {
+  const colorClasses = teamRole === "owner"
+    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+    : "bg-muted/30 text-muted-foreground border-border";
+
   return (
-    <span className="rounded-md border bg-muted/30 px-2 py-1 font-medium text-xs capitalize">
+    <span className={cn("rounded-full border px-2 py-1 font-medium text-xs capitalize", colorClasses)}>
       {teamRole}
     </span>
   );
@@ -95,10 +99,10 @@ function MemberRow({
         <div className="flex">
           <span
             className={cn(
-              "inline-flex min-w-[130px] justify-center rounded-md border px-2 py-1 text-xs",
+              "inline-flex rounded-full border px-2 py-1 text-xs font-medium",
               isExpired
-                ? "border-destructive/40 text-destructive"
-                : "border-primary/40 text-primary"
+                ? "bg-destructive/10 border-destructive/20 text-destructive dark:text-destructive"
+                : "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"
             )}
           >
             {statusLabel}
